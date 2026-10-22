@@ -1,0 +1,221 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>October Ride Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+
+.toc{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;margin:4px 0 10px}
+.toc a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--line)}
+.toc a:hover{color:var(--fg);border-color:var(--accent)}
+.big{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin:14px 0}
+.big div{background:var(--surface);padding:12px 14px}
+.big b{display:block;font-family:var(--display);font-size:34px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.big span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.big small{display:block;font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}
+.prose{min-width:0;max-width:min(68ch,100%)}
+.big{grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))}
+.two{grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))}
+.prose h2{font-size:30px}
+.prose table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse}
+.prose td:first-child{min-width:150px}
+.prose h3{font-family:var(--display);font-weight:500;font-size:21px;letter-spacing:.02em;margin:20px 0 6px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:12px 0}
+.two .panel h4{margin:0 0 8px;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.two .panel ul{margin:0;padding-left:18px;font-size:14px;line-height:1.5}
+.two{max-width:1000px}
+.wrap>*{min-width:0}
+.two .panel li{margin-bottom:6px}
+/* Layout: a full-bleed map on top, a dispatch-sheet panel of day bars and hour histogram beneath. Colors come from the two platforms' brand hues, muted onto a road-grey ground. */
+:root{
+  --bg:#f3f2ee; --surface:#ffffff; --fg:#1d1f24; --muted:#5f6471; --line:#d9d8d2;
+  --lyft:#d9218a; --uber:#1f6f8b; --accent:#c0532b; --mapbg:#e9e7e1; --grid:#dedcd5;
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;
+  --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark }
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);margin:0}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 32px;max-width:1240px;margin:0 auto;display:grid;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(32px,5vw,48px);letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+.sub{color:var(--muted);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.stat{background:var(--surface);padding:10px 12px;min-width:0}
+.stat b{display:block;font-family:var(--display);font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat small{display:block;font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:3px}
+.controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:5px 10px;font:500 13px var(--body);cursor:pointer;border-radius:999px}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip.lyft[aria-pressed="true"]{background:var(--lyft);border-color:var(--lyft);color:#fff}
+.chip.uber[aria-pressed="true"]{background:var(--uber);border-color:var(--uber);color:#fff}
+.chip:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sep{color:var(--muted);padding:0 4px}
+#map{height:min(68vh,640px);min-height:380px;background:var(--mapbg);border:1px solid var(--line)}
+.leaflet-container{background:var(--mapbg);font-family:var(--body)}
+.leaflet-bar a{background:var(--surface);color:var(--fg);border-bottom-color:var(--line)}
+.leaflet-bar a:hover{background:var(--bg)}
+.leaflet-tooltip{background:var(--surface);color:var(--fg);border:1px solid var(--line);font:12px var(--body);box-shadow:none;padding:6px 8px;max-width:260px;white-space:normal}
+.leaflet-tooltip b{font-family:var(--mono)}
+.leaflet-tooltip-top:before{border-top-color:var(--line)}
+.place{font:600 11px var(--body);color:var(--muted);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;background:none;border:none;box-shadow:none;pointer-events:none}
+.mapnote{font-size:12px;color:var(--muted)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:5px}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.panel{background:var(--surface);border:1px solid var(--line);padding:14px;min-width:0}
+h2{font-family:var(--display);font-weight:500;font-size:20px;margin:0 0 10px;letter-spacing:.02em}
+h2 small{font:400 12px var(--body);color:var(--muted);margin-left:8px}
+.days{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.days .d{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.days .bar{height:14px;background:var(--grid);position:relative;min-width:0}
+.days .bar i{position:absolute;left:0;top:0;bottom:0}
+.days .bar .l{background:var(--lyft)} .days .bar .u{background:var(--uber)}
+.days .v{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;text-align:right}
+.days button{all:unset;cursor:pointer;display:contents}
+.days .row:hover .d{color:var(--fg)}
+svg text{fill:var(--muted);font:11px var(--mono)}
+svg .hbar{fill:var(--accent)} svg .axis{stroke:var(--line)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td{padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
+td.num{font-family:var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td .pl{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.chip.dead[aria-pressed="true"],.chip.acc[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:13px}
+.kv .k{color:var(--muted)} .kv .v{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.kv .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.kv .h:first-child{margin-top:0;border:0;padding-top:0}
+.cl{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.cl .bar{height:12px;background:var(--grid);position:relative} .cl .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--lyft)} .cl .bar i.u{background:var(--uber)} .cl .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.note{font-size:12px;color:var(--muted);margin-top:8px;max-width:65ch}
+.foot{font-size:12px;color:var(--muted);max-width:65ch}
+@media (prefers-reduced-motion:no-preference){.chip{transition:background .15s}}
+
+nav{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:10px}
+nav .brand{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.01em;color:var(--fg);text-decoration:none;margin-right:auto}
+nav a{color:var(--muted);text-decoration:none;font-size:14px;padding:4px 0}
+nav a:hover,nav a[aria-current]{color:var(--fg);border-bottom:2px solid var(--accent)}
+.hero{display:grid;gap:14px}
+.hero img{width:100%;max-width:100%;height:auto;border:1px solid var(--line);display:block}
+.lede{font-size:17px;line-height:1.55;max-width:65ch}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{border:1px solid var(--line);background:var(--surface);padding:16px;text-decoration:none;color:var(--fg);display:grid;gap:8px;min-width:0}
+.card:hover{border-color:var(--accent)}
+.card h3{font-family:var(--display);font-weight:500;font-size:22px;margin:0;letter-spacing:.02em}
+.card p{margin:0;font-size:14px;color:var(--muted);line-height:1.5}
+.card .go{font-size:13px;color:var(--accent);font-weight:600}
+.prose{max-width:68ch;font-size:15px;line-height:1.6}
+.prose h2{margin-top:22px}
+.prose p{margin:0 0 12px}
+.prose table{font-size:14px} .prose td,.prose th{padding:6px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+.prose th{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-top:0}
+.prose .num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.callout{border-left:3px solid var(--accent);padding:8px 12px;background:var(--surface);font-size:14px;margin:12px 0}
+footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+</style>
+<div class="wrap">
+<nav><a class="brand" href="index.html">October Ride Map</a><a href="index.html">Home</a><a href="map.html">Map</a><a href="earnings.html">Earnings</a><a href="days.html">Day by day</a><a href="patterns.html">Patterns</a><a href="findings.html" aria-current="page">Findings</a><a href="method.html">Data & method</a></nav>
+
+<header><h1>Findings</h1><div class="sub">Sixteen questions put to the data after the map was built, answered from the files</div></header>
+<div class="prose">
+<p>Once the two weeks were mapped, the comparison moved to a question round: seven about the airport, nine about pay, driving habits and the data itself. These are the answers in plain terms. Every figure comes from the ride files, Lyft&#8217;s export, Uber&#8217;s trip table, the earnings sheet and the two Prop 22 statements; where a number depends on an assumption, the assumption is stated. The full working, with the script and its output, is in the comparison record.</p>
+<div class="toc"><a href="#airport">Airport</a><a href="#pay">Pay</a><a href="#driving">Driving</a><a href="#data">The data itself</a><a href="#market">Driver vs market</a></div>
+</div>
+<div class="big">
+  <div><span>After an LAX drop-off</span><b>19 min</b><small>median to the next pickup, against 6 minutes everywhere else &#8212; and the car moved only 1.4 miles</small></div>
+  <div><span>An LAX run, all in</span><b>$23.25</b><small>per hour including the exit, vs $21.36 for an ordinary Lyft ride. Net positive, but thin</small></div>
+  <div><span>Lyft booked time</span><b>&#8722;8.5 h</b><small>below the accept-to-drop-off clock; 450 of the 509 missing minutes are the 88 stacked rides</small></div>
+  <div><span>Uber fare share</span><b>36&#162;</b><small>of each rider dollar on the 60 priced trips; 44&#162; with tips and promotions</small></div>
+</div>
+<div class="prose">
+<h2 id="airport">Airport</h2>
+<h3>Is 8% a law of the market?</h3>
+<p>Two unrelated datasets, this driver&#8217;s October and an EV fleet&#8217;s analysis, both land near 8% of rides ending at LAX. The agreement mostly dissolves when the definitions are lined up. This driver&#8217;s 8.4% is Lyft rides ending within 1.6 miles of the terminal loop by GPS; make the circle 1.0 mile (the terminals, LAX-it and the ramps) and it is 6.6%; make it a ZIP-code inference like the fleet&#8217;s and it is 12.4%, because Westchester and the Century Boulevard hotel row sit in 90045 and he worked them for short hops. Add that it is one driver over twelve days (20 airport drop-offs, so &#177;4 or 5 by chance alone) with a Westside habit, and the honest statement is that LAX took somewhere between 5% and 12% of his rides depending on how you draw the line. The fleet&#8217;s figure needs the same treatment before the two can be compared; the terminal-by-GPS rule is the one worth standardizing on, because it measures airport demand rather than airport-neighborhood demand.</p>
+
+<h3>What leaving the airport costs</h3>
+<p>The fleet analysis assumed ten empty minutes per airport drop-off. This driver, by his own rule, went offline after every LAX drop-off and only took his next ride from a street pickup outside the airport flow. Measured across all 20 drop-offs: a median 15 minutes to the next accept and 19 to the next pickup (means 21 and 27), against a median of 0 and 6 minutes after every other ride. The next pickup was a median 1.4 miles away, 11 of 20 still inside the 1.6-mile zone, 18 of 20 in Los Angeles or Culver City. So the exit is short in distance and long in time: the cost is the offline dwell, 13 to 18 minutes per drop-off over the ordinary gap, not the driving. Scaled to the fleet&#8217;s 580 drop-offs a day, ten minutes becomes roughly 170 hours a day rather than 97.</p>
+
+<h3>Is the airport ride still worth it?</h3>
+<table>
+<tr><th></th><th class="num">LAX drop-offs (19)</th><th class="num">Other Lyft rides (200)</th></tr>
+<tr><td>Average fare</td><td class="num">$27.19</td><td class="num">$12.49</td></tr>
+<tr><td>Accept to drop-off</td><td class="num">45 min</td><td class="num">27 min</td></tr>
+<tr><td>Wait to the next pickup</td><td class="num">25 min</td><td class="num">8 min</td></tr>
+<tr><td>$ per engaged hour</td><td class="num">$36.04</td><td class="num">$27.82</td></tr>
+<tr><td>$ per hour including the wait</td><td class="num">$23.25</td><td class="num">$21.36</td></tr>
+<tr><td>$ per billed mile</td><td class="num">$2.36</td><td class="num">$1.96</td></tr>
+<tr><td>$ per mile including empty miles to the next pickup</td><td class="num">$2.09</td><td class="num">$1.67</td></tr>
+</table>
+<p>Yes, on every measure, even charging the whole exit against it. The margin per hour is only $1.89 though; an exit ten minutes longer would erase it. For Uber nothing can be said: without an LAX decal the driver was dealt no terminal work, and his one Uber drop-off in the zone was a private-aviation terminal.</p>
+
+<h3>Was exiting offline the right call?</h3>
+<p>The files cannot price the road not taken, because by design there are no terminal pickups in them. What they can do is state the break-even. Staying in the LAX-it queue had to beat $21.36 an hour. After a 30-minute wait, a 20-minute ride out would have had to pay $17.80; after 45 minutes, $23.14; after an hour, $28.48 &#8212; more than his own average inbound airport fare. So the policy was right if typical queue waits at his hours ran past about 45 minutes or typical outbound fares ran under about $20, and wrong if the queue was short. Neither is observable here. What is observable is that he paid 13 to 18 minutes for the exit twenty times and accepted it.</p>
+
+<h3>The decal as a natural experiment</h3>
+<p>Same driver, same car, same days; Lyft dealt airport work and Uber did not. Strip the airport out of Lyft and its average fare drops from $13.73 to $12.49, almost exactly Uber&#8217;s $12.83: airport access is where Lyft&#8217;s extra dollar per ride comes from. Nothing else moves. Uber keeps its $3-an-hour edge in trip-hour terms ($42.84 vs $38.97 ex-airport), and Lyft keeps the lower empty-mile share (15.5% vs 23.0% on the combined chain) even though Lyft is the platform with twenty airport exits. The rest of the platform gap is confounded by things airport access cannot explain: 70 accepted Uber trips against 226 Lyft (a filtered subset will always look better per hour), Uber&#8217;s later hours and pricier products, both apps open at once, and two different pricing engines.</p>
+
+<h3>Burbank, Ontario and what would kill the hypothesis</h3>
+<p>Burbank drew 4 drop-offs (1.4%) against LAX&#8217;s 20. If airport share scaled with airport size, Burbank at a tenth of LAX&#8217;s passengers should be about 0.6%; it is two and a half times that, because the North Hollywood cluster is three miles from it. Ontario, 20 miles from the Covina base, should by the same logic show two rides; it shows none, because every day went west. Airport share follows where the driver works, not how big the airport is. The cheapest test of the 8% idea is one more LA driver&#8217;s export scored the same way; a driver with similar hours and no airport policy landing below 4% or above 12% ends it as a constant, and three or four drivers clustering at 6&#8211;10% would keep it alive as a tendency.</p>
+
+<h2 id="pay">Pay</h2>
+<h3>What Uber keeps</h3>
+<p>Three different &#8220;driver&#8217;s share&#8221; figures circulated: 35%, 44.0% and 44.6%. They are three different fractions. On the 60 Uber trips where the rider&#8217;s price is recorded, the driver&#8217;s fare was 34.6% of it on a typical ride and 35.8% of the total; with promotions 38.0%; with promotions and the rider&#8217;s tip 44.0%. The 44.6% was an error in this track&#8217;s first summary (fares over 70 trips divided by prices over 60), corrected in the record. The share is flat across ride length, 33&#8211;35% in every distance band, so it is not a short-ride artifact. Uber&#8217;s implied take on those 60 trips: $1,045, a mean of $17.42 and a median of $13.22 per ride. The sentence to quote: <em>on trips where I could see the rider&#8217;s price, my fare was 36 cents of every rider dollar; tips and promos took me to 44.</em></p>
+
+<h3>Where Lyft&#8217;s booked hours went</h3>
+<p>Lyft&#8217;s Prop 22 statement counted 91 h 02 m of booked time for Oct 5&#8211;19. The driver&#8217;s day page says 99:53. Lyft&#8217;s own export settles which is right: take every ride&#8217;s accept-to-drop-off interval, merge the overlaps where the next ride was accepted before the last passenger was out, and the total is 99 h 31 m &#8212; the day page to within 22 minutes over twelve days. Lyft&#8217;s figure is 509 minutes short of that, and the shortfall is almost exactly the stacked rides: on the 88 rides accepted before the previous drop-off, the gap from that drop-off to the new pickup sums to 450 minutes. The miles say the same thing. Billed miles plus the approach on the 138 <em>non</em>-stacked rides comes to about 1,676, Lyft&#8217;s statement says 1,671; the day page&#8217;s 1,808 is billed plus approach on all 226. The simplest rule that fits both: Lyft credits no approach time or miles on a ride accepted while the previous one was still under way.</p>
+<div class="callout">At $21.61 per booked hour, those 8.5 hours are $184 of guarantee per two-week period, plus about $51 for the 137 miles. The floor cleared eligible earnings by $45.16 on Lyft&#8217;s count; on the day-page count it would have been about $286. It is the first thing to ask Lyft about.</div>
+<p>The eligible-earnings gap is smaller and explained: $226 of the per-ride dollars are bonus and streak money Lyft does not count toward the guarantee, plus $7.59 of cancellation fees. Day by day the floor bound on roughly 8 of 12 days by $3 to $18 and cleared on Oct 10, 13, 15 and 16, though Prop 22 settles by pay period, not by day.</p>
+
+<h3>Tips</h3>
+<p>Lyft riders tipped $335.22 over 226 rides; Uber riders $130.15 over 70. In total Lyft wins; per ride it is Uber, $1.86 to $1.48, and per fare dollar too (17.9% vs 12.1%). Ride-level tips exist only on Uber, where the pattern is clear: midday is the window (59% of 12&#8211;4 PM trips tipped, averaging $4.03, against 10&#8211;25% in every other band), 2&#8211;5 mile rides tip most often (50%) and 5&#8211;10 mile rides least (16%), Electric and Comfort riders tip more than UberX. On Lyft only daily totals exist, and they track the day&#8217;s average fare closely: the three best tipping days (Oct 10, 18, 19) were the three long-fare, airport-heavy days. Trip mix does not explain Uber&#8217;s per-ride edge: apply Uber&#8217;s tip rates by ride length to Lyft&#8217;s mix and Lyft should have collected about $424, not $335. The difference is the platform or its riders, not the rides.</p>
+
+<h2 id="driving">Driving</h2>
+<h3>Empty miles, sorted</h3>
+<p>Run both apps as one sequence and the car covered 348 empty miles between 284 consecutive rides, 17.3% of paid miles. Most of it is unremarkable: 223 ordinary hand-offs, median 0.77 miles, 205 miles in all. Seven long gaps carry 23% of the total, and two of those are really the drive home with a ride caught on the way (Los Alamitos to La Puente, Anaheim to City of Industry). The twenty-four post-airport exits cost 40 miles, about 1.5 each, the direct price of the exit-offline rule. Downtown chains are as tight as chaining gets, 12 legs averaging 0.29 miles. Structural, in the sense that only moving house or changing the airport rule would remove it: the exits, the homeward legs, the late-evening legs. Avoidable: about 35 miles of mid-day repositioning (Rosemead to Glendale at 5 AM, Azusa to El Monte, Costa Mesa to Seal Beach) and the long tail of ordinary gaps. Uber&#8217;s share of empty miles is heavier (23% of its paid miles vs Lyft&#8217;s 15.5%) because four of the seven long gaps ended in an Uber pickup: Uber pinged from far away, and he went.</p>
+
+<h3>What stacking is worth, and how days began</h3>
+<p>Eighty-eight of 214 consecutive Lyft rides were accepted before the previous passenger was out of the car. A stacked ride&#8217;s pickup came a median 5 minutes after the last drop-off; an unstacked one, 10. Six minutes saved, 88 times, is 8.1 hours over twelve days, about 40 minutes a day, worth roughly $26 a day at Lyft&#8217;s trip-hour rate. The stacked rides themselves pay no better ($13.58 vs $13.46); stacking buys time, not fares. Days began at home: on eight of twelve the first pickup was within 2.5 miles of the Covina base, and nine of twelve first rides pointed west into the basin, paid repositioning worth $168 across the fortnight. The unpaid leg is the other end. The last drop-off of the day averaged 14.8 miles from home (Long Beach 29, downtown 27, LA 26), three times the morning distance, and only twice did a ride happen to point the way back.</p>
+
+<h3>The Uber clock</h3>
+<p>Uber&#8217;s two time columns were on different bases, and it is now settled which. The compact table&#8217;s time plus the trip&#8217;s duration equals the recorded end time on 70 of 70 trips, so that column is the pickup. The trip table&#8217;s time runs a median 6 minutes earlier on 66 of 70, which is the request or accept (Lyft&#8217;s accept-to-pickup gap is 7 minutes); four trips where it runs later are unexplained. The first hour-of-day chart therefore mixed Lyft accepts with Uber pickups; the Patterns page now shows both on a pickup basis.</p>
+
+<h2 id="data">The data itself</h2>
+<h3>Which endpoints to trust</h3>
+<p>Every ride&#8217;s endpoints came from one of five sources, and each was tested the same way: the straight-line distance between the endpoints cannot exceed the billed miles. GPS-trail endpoints (219 Lyft rides) failed once &#8212; Oct 11 at 6:03 PM, 4.93 straight-line miles against 4.30 billed, a mis-timed pickup worth re-checking. Phone-trace endpoints (68 Uber rides) failed never, though the trace <em>shape</em> was wrong or cut short on 18 rides across both platforms and was replaced or patched. The seven recalled endpoints failed never. The two geocoded Uber rows on Oct 19 failed both times, by factors of two and three, and should not be used for anything. Where sources disagree: GPS beats a geocode, a recalled corner beats the accept-point stand-in (which sat a median 0.91 miles from the true pickup), and when a trace disagrees with the billed miles by more than a third the bill wins, because it is the one column both sides audited at the time.</p>
+
+<h3>Auditing the recalls</h3>
+<p>Each of the seven rides filled from memory was checked against its billed miles, duration, accept point and the rides on either side. The Oct 8 Beverlywood&#8211;LAX run is textbook: 7.78 road miles against 8.37 billed, a pickup 0.55 miles and 15 minutes from the previous Culver City drop-off, the Sepulveda loop ride 14 minutes after landing at Terminal 3. The Oct 19 evening chain is continuous from Koreatown through the Piero, Lincoln Heights, LAC+USC, Union Station and Boyle Heights with 3 to 9 minutes and 0.1 to 1.4 miles between every pair. Two short hops strain mildly, the Grocery Outlet ride (road 0.97 vs 1.34 billed, 5 mph in Koreatown traffic) and St Louis to Wabash (0.82 vs 1.23); an exact street choice would fix either. The one remaining bad link in the chain is the geocoded Uber ride at 6:59 PM, not a recall. The LAX run itself changes little upstream: the airport count goes from 19 to 20, Oct 8 joins the airport days, and the lesson is that this ride was invisible precisely because its accept point was only 0.34 miles from the pickup &#8212; it looked ordinary until the drop-off was known.</p>
+
+<h2 id="market">Driver vs market</h2>
+</div>
+<div class="two">
+  <div class="panel"><h4>True of this driver</h4><ul>
+    <li>No Uber airport work: a property of his account, not of Uber in LA.</li>
+    <li>The exit-offline rule and its 13&#8211;18 minutes per airport drop-off.</li>
+    <li>Seventy Uber trips against 226 Lyft on the same days, and the per-hour edge a filtered subset brings with it.</li>
+    <li>The Covina base: eastbound starts, a 15-mile average ride home, zero Ontario.</li>
+    <li>Lyft as the volume app, Uber as the one he answered from the fringes.</li>
+    <li>Sixty-one of 296 pickups in one Westside coast cluster.</li>
+  </ul></div>
+  <div class="panel"><h4>Probably true of the market</h4><ul>
+    <li>Short rides pay far more per mile than long ones ($4.89 vs $1.60 on Lyft, $3.82 vs $1.52 on Uber): both platforms, every cluster, the shape of a base-plus-distance tariff.</li>
+    <li>Uber&#8217;s fare is about 35% of the rider&#8217;s price, flat across ride length.</li>
+    <li>Inbound airport rides pay about twice the average fare and $0.40 more per mile; the premium is the tariff&#8217;s, only the exit cost is his.</li>
+    <li>Approach time on stacked rides is the Prop 22 lever, for every California driver who stacks.</li>
+    <li>Uber dispatches across the basin (four pings over 23 miles); Lyft keeps the chain tight.</li>
+    <li>Midday is when Uber riders tip.</li>
+  </ul></div>
+</div>
+<div class="prose">
+<p>The finding most likely to show up in another LA driver&#8217;s October is the per-mile gradient together with Uber&#8217;s 35% share: both are set by the platforms&#8217; pricing and both appear in every slice of this data. The least likely is the 8% airport share, which moves by a factor of two with the definition, follows a Westside habit another driver may not have, and carries a two-point standard error before either of those is considered. It is this driver&#8217;s October, not the market&#8217;s.</p>
+</div>
+
+<footer>Built from the driver's own Lyft and Uber exports, a phone GPS trail, the earnings sheet, two Prop 22 statements, and seven routes recalled from memory. Every figure on these pages is computed from those files; where a number is an estimate it says so.</footer>
+</div>

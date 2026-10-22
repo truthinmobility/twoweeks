@@ -1,0 +1,164 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>October Ride Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a full-bleed map on top, a dispatch-sheet panel of day bars and hour histogram beneath. Colors come from the two platforms' brand hues, muted onto a road-grey ground. */
+:root{
+  --bg:#f3f2ee; --surface:#ffffff; --fg:#1d1f24; --muted:#5f6471; --line:#d9d8d2;
+  --lyft:#d9218a; --uber:#1f6f8b; --accent:#c0532b; --mapbg:#e9e7e1; --grid:#dedcd5;
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;
+  --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark }
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);margin:0}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 32px;max-width:1240px;margin:0 auto;display:grid;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(32px,5vw,48px);letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+.sub{color:var(--muted);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.stat{background:var(--surface);padding:10px 12px;min-width:0}
+.stat b{display:block;font-family:var(--display);font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat small{display:block;font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:3px}
+.controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:5px 10px;font:500 13px var(--body);cursor:pointer;border-radius:999px}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip.lyft[aria-pressed="true"]{background:var(--lyft);border-color:var(--lyft);color:#fff}
+.chip.uber[aria-pressed="true"]{background:var(--uber);border-color:var(--uber);color:#fff}
+.chip:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sep{color:var(--muted);padding:0 4px}
+#map{height:min(68vh,640px);min-height:380px;background:var(--mapbg);border:1px solid var(--line)}
+.leaflet-container{background:var(--mapbg);font-family:var(--body)}
+.leaflet-bar a{background:var(--surface);color:var(--fg);border-bottom-color:var(--line)}
+.leaflet-bar a:hover{background:var(--bg)}
+.leaflet-tooltip{background:var(--surface);color:var(--fg);border:1px solid var(--line);font:12px var(--body);box-shadow:none;padding:6px 8px;max-width:260px;white-space:normal}
+.leaflet-tooltip b{font-family:var(--mono)}
+.leaflet-tooltip-top:before{border-top-color:var(--line)}
+.place{font:600 11px var(--body);color:var(--muted);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;background:none;border:none;box-shadow:none;pointer-events:none}
+.mapnote{font-size:12px;color:var(--muted)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:5px}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.panel{background:var(--surface);border:1px solid var(--line);padding:14px;min-width:0}
+h2{font-family:var(--display);font-weight:500;font-size:20px;margin:0 0 10px;letter-spacing:.02em}
+h2 small{font:400 12px var(--body);color:var(--muted);margin-left:8px}
+.days{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.days .d{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.days .bar{height:14px;background:var(--grid);position:relative;min-width:0}
+.days .bar i{position:absolute;left:0;top:0;bottom:0}
+.days .bar .l{background:var(--lyft)} .days .bar .u{background:var(--uber)}
+.days .v{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;text-align:right}
+.days button{all:unset;cursor:pointer;display:contents}
+.days .row:hover .d{color:var(--fg)}
+svg text{fill:var(--muted);font:11px var(--mono)}
+svg .hbar{fill:var(--accent)} svg .axis{stroke:var(--line)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td{padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
+td.num{font-family:var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td .pl{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.chip.dead[aria-pressed="true"],.chip.acc[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:13px}
+.kv .k{color:var(--muted)} .kv .v{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.kv .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.kv .h:first-child{margin-top:0;border:0;padding-top:0}
+.cl{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.cl .bar{height:12px;background:var(--grid);position:relative} .cl .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--lyft)} .cl .bar i.u{background:var(--uber)} .cl .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.note{font-size:12px;color:var(--muted);margin-top:8px;max-width:65ch}
+.foot{font-size:12px;color:var(--muted);max-width:65ch}
+@media (prefers-reduced-motion:no-preference){.chip{transition:background .15s}}
+
+nav{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:10px}
+nav .brand{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.01em;color:var(--fg);text-decoration:none;margin-right:auto}
+nav a{color:var(--muted);text-decoration:none;font-size:14px;padding:4px 0}
+nav a:hover,nav a[aria-current]{color:var(--fg);border-bottom:2px solid var(--accent)}
+.hero{display:grid;gap:14px}
+.hero img{width:100%;max-width:100%;height:auto;border:1px solid var(--line);display:block}
+.lede{font-size:17px;line-height:1.55;max-width:65ch}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{border:1px solid var(--line);background:var(--surface);padding:16px;text-decoration:none;color:var(--fg);display:grid;gap:8px;min-width:0}
+.card:hover{border-color:var(--accent)}
+.card h3{font-family:var(--display);font-weight:500;font-size:22px;margin:0;letter-spacing:.02em}
+.card p{margin:0;font-size:14px;color:var(--muted);line-height:1.5}
+.card .go{font-size:13px;color:var(--accent);font-weight:600}
+.prose{max-width:68ch;font-size:15px;line-height:1.6}
+.prose h2{margin-top:22px}
+.prose p{margin:0 0 12px}
+.prose table{font-size:14px} .prose td,.prose th{padding:6px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+.prose th{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-top:0}
+.prose .num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.callout{border-left:3px solid var(--accent);padding:8px 12px;background:var(--surface);font-size:14px;margin:12px 0}
+footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+</style>
+<div class="wrap">
+<nav><a class="brand" href="index.html">October Ride Map</a><a href="index.html">Home</a><a href="map.html">Map</a><a href="earnings.html">Earnings</a><a href="days.html">Day by day</a><a href="patterns.html" aria-current="page">Patterns</a><a href="findings.html">Findings</a><a href="method.html">Data & method</a></nav>
+
+<header><h1>Patterns</h1><div class="sub">Where the rides pooled, where the car ran empty, and when the money came</div></header>
+<div class="panels">
+  <div class="panel">
+      <h2>Pickup clusters <small>DBSCAN, 1.5 mi radius, min 4 · solid Lyft, dashed Uber</small></h2>
+      <div class="cl" id="clusters"></div>
+      <p class="note" id="clnote"></p>
+    </div>
+
+  <div class="panel">
+      <h2>Empty miles and waiting <small>from the geospatial analysis</small></h2>
+      <div class="kv" id="dead"></div>
+    </div>
+
+  <div class="panel">
+      <h2>Rides by hour <small>accept time, both platforms; outline = Lyft moved to pickup time</small></h2>
+      <svg id="hours" viewBox="0 0 320 150" width="100%" aria-label="Ride starts by hour of day"></svg>
+    </div>
+
+</div>
+<div class="prose">
+<h2>Geography</h2>
+<p>Lyft pickups fall into 17 clusters (DBSCAN, 1.5-mile radius, at least four pickups) holding 172 of 226 rides. The five largest: Mid-City / West Hollywood (27 rides, $379), Downtown LA (27 rides, $459, the richest at $17 a ride), the LAX / Westchester / Inglewood apron (22, $303), Santa Monica / Marina del Rey (18, $248) and North Hollywood / Burbank (15, $195). The home base around Covina, West Covina and Azusa produced only 12 pickups; most days started there before 7 AM and the first ride drifted one way into the basin. Uber's 70 pickups form just two clusters, Hollywood (12 trips) and LAX (5); the other 51 are scattered one-offs from Azusa to Seal Beach, which is the same fact as Uber's long empty legs seen from the other side. Cluster both platforms together, though, and 51 of those 70 Uber pickups land inside Lyft's own clusters, and an Uber pickup is as close to its nearest neighbour as a Lyft one is (0.45 vs 0.41 miles). Uber was not a different territory; it was a thinner line through the same one, plus Pasadena and Glendale.</p>
+<p>The most frequent corridors are intra-city: Los Angeles to Los Angeles 78 times, Long Beach to Long Beach 11, then Santa Monica→LA, West Hollywood→LA, Culver City→LA and LA→Burbank at four or five each. On a 1.3-mile grid no point-to-point pair repeats more than three times. This is roaming work, not a route.</p>
+<h2>LAX</h2>
+<p>Nineteen drop-offs at the terminals were worth $504.27 (average $26.54 for 11.6 miles); eleven pickups there were worth $141.41 (average $12.86 for 5 miles, mostly hops to Inglewood and Westchester hotels). The airport is a paying destination, not an origin. The single largest fare of the fortnight was Bel Air to the LAX area on Oct 10: 26.8 miles, $101.78.</p>
+<h2>Empty miles</h2>
+<p>Between consecutive rides the car covered 352.6 empty miles on Lyft against 1,538 paid (18.6% empty) and 290.2 against 477 on Uber (37.8% empty). Uber pings arrive far apart: a median 1.9 miles from the last drop-off, a 90th percentile of 12.6, with four gaps over 23 miles. Interleave both apps and the empty share falls to 14.4%, the clearest argument in the data for running both. The drive from accept to pickup on Lyft was a median 0.92 miles and 7 minutes, 27.9 hours over the two weeks, and 88 of 225 rides were accepted before the previous passenger was out of the car.</p>
+<h2>Time of day</h2>
+<p>Accepts peak in the 10 AM hour (33 rides, about $436, the best hour) with a second plateau from 1 to 3 PM. Lyft carries the early morning, 44 rides accepted before 9 AM against 13 on Uber, while Uber has the larger share after 7 PM. Pickups run a median seven minutes behind accepts, so on a pickup-time basis the 10 AM peak is 31 rather than 33 and the shape is otherwise the same; the chart shows both. The best day by the clock was Oct 18 at $51.80 per trip-hour, carried by ten Uber trips including a $46.13 run from Pacific Palisades to Downtown.</p>
+</div>
+
+<footer>Built from the driver's own Lyft and Uber exports, a phone GPS trail, the earnings sheet, two Prop 22 statements, and seven routes recalled from memory. Every figure on these pages is computed from those files; where a number is an estimate it says so.</footer>
+</div>
+<script src="data.js"></script>
+<script>
+(function(){
+const D=window.RIDES, S=D.summary;
+const $=s=>document.querySelector(s);
+const money=v=>'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0=v=>'$'+Math.round(v).toLocaleString('en-US');
+const fmtDay=d=>{const [y,m,dd]=d.split('-');return new Date(y,m-1,dd).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})};
+// hours chart
+(function(){const H=D.hours,mx=Math.max(...H,...D.hoursp),W=320,Hh=150,l=26,b=24,t=8,bw=(W-l-6)/24;
+ let s=`<line class="axis" x1="${l}" y1="${Hh-b}" x2="${W-4}" y2="${Hh-b}"/>`;
+ [0,10,20,30].forEach(v=>{const y=Hh-b-(v/mx)*(Hh-b-t);s+=`<line class="axis" x1="${l}" x2="${W-4}" y1="${y}" y2="${y}" stroke-dasharray="2 3"/><text x="${l-4}" y="${y+4}" text-anchor="end">${v}</text>`});
+ H.forEach((v,i)=>{const h=v/mx*(Hh-b-t);s+=`<rect class="hbar" x="${l+i*bw+1}" y="${Hh-b-h}" width="${bw-2}" height="${h}"><title>${i}:00 — ${v} rides accepted</title></rect>`;
+  const v2=D.hoursp[i],h2=v2/mx*(Hh-b-t);s+=`<rect x="${l+i*bw+1}" y="${Hh-b-h2}" width="${bw-2}" height="${h2}" fill="none" stroke="var(--fg)" stroke-width="1" opacity=".7"><title>${i}:00 — ${v2} rides by pickup time (Lyft shifted)</title></rect>`;
+  if(i%6===0)s+=`<text x="${l+i*bw+bw/2}" y="${Hh-8}" text-anchor="middle">${i===0?'12a':i===12?'12p':i<12?i+'a':(i-12)+'p'}</text>`});
+ $('#hours').innerHTML=s;})();
+
+
+const dd=D.dead,ap=D.apd;
+$('#dead').innerHTML=[['h','Deadhead: drop-off → next pickup, straight line'],['Lyft median / mean gap',`${dd.Lyft.med} / ${dd.Lyft.mean} mi`],['Lyft empty miles vs paid',`${dd.Lyft.tot} vs ${dd.Lyft.paid} mi (${(100*dd.Lyft.tot/(dd.Lyft.tot+dd.Lyft.paid)).toFixed(1)}% empty)`],['Uber median / mean gap',`${dd.Uber.med} / ${dd.Uber.mean} mi`],['Uber empty miles vs paid',`${dd.Uber.tot} vs ${dd.Uber.paid} mi (${(100*dd.Uber.tot/(dd.Uber.tot+dd.Uber.paid)).toFixed(1)}% empty)`],['Both apps interleaved',`${dd.Both.tot} mi empty (${(100*dd.Both.tot/(dd.Both.tot+dd.Both.paid)).toFixed(1)}%)`],
+ ['h','Lyft accept point → pickup'],['Rides measured',ap.n],['Median / 90th pct distance',`${ap.med} / ${ap.p90} mi`],['Within 1 mi · within 2 mi',`${ap.w1} · ${ap.w2}`],['Median accept → pickup wait',`${S.wait_med} min`],['Total time driving to pickups',`${S.wait_tot_h} h`],['Rides accepted before previous drop-off',`${S.stacked} of 225`]].map(x=>x[0]==='h'?`<span class="h">${x[1]}</span>`:`<span class="k">${x[0]}</span><span class="v">${x[1]}</span>`).join('');
+
+const cmax=D.clusters[0].n,names=['Mid-City / West Hollywood','Downtown LA','LAX / Westchester / Inglewood','Santa Monica / Marina del Rey','North Hollywood / Burbank','South Park / Exposition','Covina / West Covina','Westmont / Willowbrook','Beverly Hills','Leimert Park','Downtown Long Beach','Signal Hill','Hawthorne / El Segundo','San Gabriel / Alhambra','Azusa','Wilmington','Manhattan Beach'];
+$('#clusters').innerHTML=`<span class="h">Lyft · 226 rides</span>`+D.clusters.map((c,i)=>`<span class="d" style="font-size:12px">${names[i]||c.lat+', '+c.lon}</span><span class="bar"><i style="width:${100*c.n/cmax}%"></i></span><span class="v" style="font-family:var(--mono);font-size:12px">${c.n} · ${money0(c.usd)}</span>`).join('')+`<span class="h">Uber · 70 trips</span>`+D.uclusters.map(c=>`<span class="d" style="font-size:12px">${c.ex.map(e=>e[0]).join(' / ')}</span><span class="bar"><i class="u" style="width:${100*c.n/cmax}%"></i></span><span class="v" style="font-family:var(--mono);font-size:12px">${c.n} · ${money0(c.usd)}</span>`).join('');
+$('#clnote').textContent=`${D.clusters.reduce((a,c)=>a+c.n,0)} of 226 Lyft pickups fall inside a cluster; the rest are scattered singles across Pasadena, El Monte, Baldwin Park, Burbank and Torrance. Uber's 70 pickups form ${D.uclusters.length} clusters holding ${D.uclusters.reduce((a,c)=>a+c.n,0)} trips; the rest are one-offs, which is the same spread that drives Uber's long deadhead legs. Two Oct 19 Uber trips with bad geocoded endpoints are excluded.`;
+
+})();
+</script>

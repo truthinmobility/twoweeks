@@ -1,0 +1,429 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>October Ride Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+
+.chart{background:var(--surface);border:1px solid var(--line);padding:12px 12px 6px}
+.daygrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.day .dh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.day h2{margin:0;font-size:24px}
+.day .tot{font-family:var(--display);font-size:34px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.day .split{height:8px;background:var(--uber);display:flex;margin-top:4px}
+.day .split i{display:block;height:100%;background:var(--lyft)}
+.day .splitlab{display:flex;justify-content:space-between;font-size:12px;margin:5px 0 10px;gap:8px}
+.day .lf{color:var(--lyft);font-weight:600}.day .ub{color:var(--uber);font-weight:600}
+.dks{display:grid;gap:1px;background:var(--line);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.dk{background:var(--surface);padding:6px 0;display:grid;grid-template-columns:122px minmax(0,1fr);gap:0 10px;align-items:baseline}
+.dk span{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.dk b{font-weight:600;font-size:14px;font-variant-numeric:tabular-nums;float:none;display:block;text-align:left;justify-self:start;font-family:var(--body)}
+.dk small{grid-column:2;font-family:var(--mono);font-size:11px;color:var(--muted);display:block;text-align:left;justify-self:start;margin:0}
+.day .note{font-size:13px;color:var(--muted);margin:10px 0 8px;line-height:1.45}
+.day .go{font-size:13px;color:var(--accent);font-weight:600;text-decoration:none}
+.day.off,.day.adj{opacity:.85}.day.off .tot,.day.adj .tot{font-size:24px;color:var(--muted)}
+.day.total{border-color:var(--accent)}
+@media (max-width:420px){.dk{grid-template-columns:1fr}.dk small{grid-column:1}}
+/* Layout: a full-bleed map on top, a dispatch-sheet panel of day bars and hour histogram beneath. Colors come from the two platforms' brand hues, muted onto a road-grey ground. */
+:root{
+  --bg:#f3f2ee; --surface:#ffffff; --fg:#1d1f24; --muted:#5f6471; --line:#d9d8d2;
+  --lyft:#d9218a; --uber:#1f6f8b; --accent:#c0532b; --mapbg:#e9e7e1; --grid:#dedcd5;
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;
+  --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark }
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);margin:0}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 32px;max-width:1240px;margin:0 auto;display:grid;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(32px,5vw,48px);letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+.sub{color:var(--muted);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.stat{background:var(--surface);padding:10px 12px;min-width:0}
+.stat b{display:block;font-family:var(--display);font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat small{display:block;font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:3px}
+.controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:5px 10px;font:500 13px var(--body);cursor:pointer;border-radius:999px}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip.lyft[aria-pressed="true"]{background:var(--lyft);border-color:var(--lyft);color:#fff}
+.chip.uber[aria-pressed="true"]{background:var(--uber);border-color:var(--uber);color:#fff}
+.chip:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sep{color:var(--muted);padding:0 4px}
+#map{height:min(68vh,640px);min-height:380px;background:var(--mapbg);border:1px solid var(--line)}
+.leaflet-container{background:var(--mapbg);font-family:var(--body)}
+.leaflet-bar a{background:var(--surface);color:var(--fg);border-bottom-color:var(--line)}
+.leaflet-bar a:hover{background:var(--bg)}
+.leaflet-tooltip{background:var(--surface);color:var(--fg);border:1px solid var(--line);font:12px var(--body);box-shadow:none;padding:6px 8px;max-width:260px;white-space:normal}
+.leaflet-tooltip b{font-family:var(--mono)}
+.leaflet-tooltip-top:before{border-top-color:var(--line)}
+.place{font:600 11px var(--body);color:var(--muted);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;background:none;border:none;box-shadow:none;pointer-events:none}
+.mapnote{font-size:12px;color:var(--muted)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:5px}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.panel{background:var(--surface);border:1px solid var(--line);padding:14px;min-width:0}
+h2{font-family:var(--display);font-weight:500;font-size:20px;margin:0 0 10px;letter-spacing:.02em}
+h2 small{font:400 12px var(--body);color:var(--muted);margin-left:8px}
+.days{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.days .d{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.days .bar{height:14px;background:var(--grid);position:relative;min-width:0}
+.days .bar i{position:absolute;left:0;top:0;bottom:0}
+.days .bar .l{background:var(--lyft)} .days .bar .u{background:var(--uber)}
+.days .v{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;text-align:right}
+.days button{all:unset;cursor:pointer;display:contents}
+.days .row:hover .d{color:var(--fg)}
+svg text{fill:var(--muted);font:11px var(--mono)}
+svg .hbar{fill:var(--accent)} svg .axis{stroke:var(--line)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td{padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
+td.num{font-family:var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td .pl{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.chip.dead[aria-pressed="true"],.chip.acc[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:13px}
+.kv .k{color:var(--muted)} .kv .v{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.kv .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.kv .h:first-child{margin-top:0;border:0;padding-top:0}
+.cl{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.cl .bar{height:12px;background:var(--grid);position:relative} .cl .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--lyft)} .cl .bar i.u{background:var(--uber)} .cl .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.note{font-size:12px;color:var(--muted);margin-top:8px;max-width:65ch}
+.foot{font-size:12px;color:var(--muted);max-width:65ch}
+@media (prefers-reduced-motion:no-preference){.chip{transition:background .15s}}
+
+nav{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:10px}
+nav .brand{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.01em;color:var(--fg);text-decoration:none;margin-right:auto}
+nav a{color:var(--muted);text-decoration:none;font-size:14px;padding:4px 0}
+nav a:hover,nav a[aria-current]{color:var(--fg);border-bottom:2px solid var(--accent)}
+.hero{display:grid;gap:14px}
+.hero img{width:100%;max-width:100%;height:auto;border:1px solid var(--line);display:block}
+.lede{font-size:17px;line-height:1.55;max-width:65ch}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{border:1px solid var(--line);background:var(--surface);padding:16px;text-decoration:none;color:var(--fg);display:grid;gap:8px;min-width:0}
+.card:hover{border-color:var(--accent)}
+.card h3{font-family:var(--display);font-weight:500;font-size:22px;margin:0;letter-spacing:.02em}
+.card p{margin:0;font-size:14px;color:var(--muted);line-height:1.5}
+.card .go{font-size:13px;color:var(--accent);font-weight:600}
+.prose{max-width:68ch;font-size:15px;line-height:1.6}
+.prose h2{margin-top:22px}
+.prose p{margin:0 0 12px}
+.prose table{font-size:14px} .prose td,.prose th{padding:6px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+.prose th{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-top:0}
+.prose .num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.callout{border-left:3px solid var(--accent);padding:8px 12px;background:var(--surface);font-size:14px;margin:12px 0}
+footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+</style>
+<div class="wrap">
+<nav><a class="brand" href="index.html">October Ride Map</a><a href="index.html">Home</a><a href="map.html">Map</a><a href="earnings.html">Earnings</a><a href="days.html" aria-current="page">Day by day</a><a href="patterns.html">Patterns</a><a href="findings.html">Findings</a><a href="method.html">Data & method</a></nav>
+
+<header><h1>Day by day</h1><div class="sub">The driver&#8217;s earnings sheet, Oct 7&#8211;19, with the rides behind each day</div></header>
+<div class="chart"><svg viewBox="0 0 760 330" width="100%" role="img" aria-label="Daily earnings as stacked bars (Lyft and Uber) above a cumulative total line against the $2,400 floor, $3,000 goal and $4,000 final goal" style="font-family:var(--body);font-size:11px">
+<line x1="46" x2="746" y1="126.0" y2="126.0" stroke="var(--grid)"/><text x="40" y="130.0" text-anchor="end" fill="var(--muted)" font-family="var(--mono)">0</text>
+<line x1="46" x2="746" y1="89.3" y2="89.3" stroke="var(--grid)"/><text x="40" y="93.3" text-anchor="end" fill="var(--muted)" font-family="var(--mono)">150</text>
+<line x1="46" x2="746" y1="52.7" y2="52.7" stroke="var(--grid)"/><text x="40" y="56.7" text-anchor="end" fill="var(--muted)" font-family="var(--mono)">300</text>
+<line x1="46" x2="746" y1="16.0" y2="16.0" stroke="var(--grid)"/><text x="40" y="20.0" text-anchor="end" fill="var(--muted)" font-family="var(--mono)">450</text>
+<rect x="55.5" y="47.4" width="31.0" height="78.6" fill="var(--lyft)"><title>Oct 7: Lyft $321.69</title></rect>
+<rect x="55.5" y="46.4" width="31.0" height="0.9" fill="var(--uber)"><title>Oct 7: Uber $3.85</title></rect>
+<text x="71.0" y="42.4" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">326</text>
+<rect x="105.5" y="76.0" width="31.0" height="50.0" fill="var(--lyft)"><title>Oct 8: Lyft $204.41</title></rect>
+<rect x="105.5" y="62.5" width="31.0" height="13.6" fill="var(--uber)"><title>Oct 8: Uber $55.50</title></rect>
+<text x="121.0" y="58.5" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">260</text>
+<rect x="155.5" y="58.2" width="31.0" height="67.8" fill="var(--lyft)"><title>Oct 9: Lyft $277.48</title></rect>
+<rect x="155.5" y="25.8" width="31.0" height="32.3" fill="var(--uber)"><title>Oct 9: Uber $132.31</title></rect>
+<text x="171.0" y="21.8" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">410</text>
+<rect x="205.5" y="56.5" width="31.0" height="69.5" fill="var(--lyft)"><title>Oct 10: Lyft $284.29</title></rect>
+<rect x="205.5" y="40.9" width="31.0" height="15.6" fill="var(--uber)"><title>Oct 10: Uber $63.65</title></rect>
+<text x="221.0" y="36.9" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">348</text>
+<rect x="255.5" y="65.1" width="31.0" height="60.9" fill="var(--lyft)"><title>Oct 11: Lyft $249.02</title></rect>
+<rect x="255.5" y="46.0" width="31.0" height="19.2" fill="var(--uber)"><title>Oct 11: Uber $78.37</title></rect>
+<text x="271.0" y="42.0" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">327</text>
+<rect x="305.5" y="98.4" width="31.0" height="27.6" fill="var(--lyft)"><title>Oct 12: Lyft $112.90</title></rect>
+<rect x="305.5" y="97.2" width="31.0" height="1.2" fill="var(--uber)"><title>Oct 12: Uber $4.90</title></rect>
+<text x="321.0" y="93.2" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">118</text>
+<rect x="355.5" y="50.3" width="31.0" height="75.7" fill="var(--lyft)"><title>Oct 13: Lyft $309.75</title></rect>
+<rect x="355.5" y="30.0" width="31.0" height="20.3" fill="var(--uber)"><title>Oct 13: Uber $82.91</title></rect>
+<text x="371.0" y="26.0" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">393</text>
+<text x="421.0" y="120.0" text-anchor="middle" fill="var(--muted)">off</text>
+<rect x="455.5" y="66.6" width="31.0" height="59.4" fill="var(--lyft)"><title>Oct 15: Lyft $243.01</title></rect>
+<rect x="455.5" y="49.2" width="31.0" height="17.4" fill="var(--uber)"><title>Oct 15: Uber $71.35</title></rect>
+<text x="471.0" y="45.2" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">314</text>
+<rect x="505.5" y="35.2" width="31.0" height="90.8" fill="var(--lyft)"><title>Oct 16: Lyft $371.57</title></rect>
+<rect x="505.5" y="18.1" width="31.0" height="17.1" fill="var(--uber)"><title>Oct 16: Uber $69.83</title></rect>
+<text x="521.0" y="14.1" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">441</text>
+<rect x="555.5" y="65.2" width="31.0" height="60.8" fill="var(--lyft)"><title>Oct 17: Lyft $248.81</title></rect>
+<rect x="555.5" y="48.9" width="31.0" height="16.3" fill="var(--uber)"><title>Oct 17: Uber $66.57</title></rect>
+<text x="571.0" y="44.9" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">315</text>
+<rect x="605.5" y="75.2" width="31.0" height="50.8" fill="var(--lyft)"><title>Oct 18: Lyft $208.01</title></rect>
+<rect x="605.5" y="30.8" width="31.0" height="44.3" fill="var(--uber)"><title>Oct 18: Uber $181.38</title></rect>
+<text x="621.0" y="26.8" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">389</text>
+<rect x="655.5" y="57.8" width="31.0" height="68.2" fill="var(--lyft)"><title>Oct 19: Lyft $279.12</title></rect>
+<rect x="655.5" y="36.3" width="31.0" height="21.4" fill="var(--uber)"><title>Oct 19: Uber $87.70</title></rect>
+<text x="671.0" y="32.3" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">367</text>
+<text x="46" y="12" fill="var(--muted)" font-size="10" letter-spacing=".08em">DAILY $ &#183; <tspan fill="var(--lyft)">&#9632;</tspan> LYFT <tspan fill="var(--uber)">&#9632;</tspan> UBER</text>
+<line x1="46" x2="746" y1="221.9" y2="221.9" stroke="var(--accent)" stroke-dasharray="4 4" opacity=".8"/><text x="50" y="218.9" fill="var(--accent)" font-size="10">$2,400 floor</text>
+<line x1="46" x2="746" y1="202.3" y2="202.3" stroke="var(--accent)" stroke-dasharray="4 4" opacity=".8"/><text x="50" y="199.3" fill="var(--accent)" font-size="10">$3,000 goal</text>
+<line x1="46" x2="746" y1="169.8" y2="169.8" stroke="var(--accent)" stroke-dasharray="4 4" opacity=".8"/><text x="50" y="166.8" fill="var(--accent)" font-size="10">$4,000 final goal</text>
+<text x="40" y="304.0" text-anchor="end" fill="var(--muted)" font-family="var(--mono)">0k</text>
+<text x="40" y="271.4" text-anchor="end" fill="var(--muted)" font-family="var(--mono)">1k</text>
+<text x="40" y="238.9" text-anchor="end" fill="var(--muted)" font-family="var(--mono)">2k</text>
+<text x="40" y="206.3" text-anchor="end" fill="var(--muted)" font-family="var(--mono)">3k</text>
+<text x="40" y="173.8" text-anchor="end" fill="var(--muted)" font-family="var(--mono)">4k</text>
+<polyline fill="none" stroke="var(--fg)" stroke-width="2" points="71.0,289.4 121.0,280.9 171.0,267.6 221.0,256.3 271.0,245.6 321.0,241.8 371.0,229.0 421.0,227.9 471.0,217.6 521.0,203.3 571.0,193.0 621.0,180.3 671.0,168.4 721.0,166.9"/>
+<circle cx="71.0" cy="289.4" r="3" fill="var(--fg)"><title>Oct 7: $325.54 cumulative</title></circle>
+<circle cx="121.0" cy="280.9" r="3" fill="var(--fg)"><title>Oct 8: $585.45 cumulative</title></circle>
+<circle cx="171.0" cy="267.6" r="3" fill="var(--fg)"><title>Oct 9: $995.24 cumulative</title></circle>
+<circle cx="221.0" cy="256.3" r="3" fill="var(--fg)"><title>Oct 10: $1,343.18 cumulative</title></circle>
+<circle cx="271.0" cy="245.6" r="3" fill="var(--fg)"><title>Oct 11: $1,670.57 cumulative</title></circle>
+<circle cx="321.0" cy="241.8" r="3" fill="var(--fg)"><title>Oct 12: $1,788.37 cumulative</title></circle>
+<circle cx="371.0" cy="229.0" r="3" fill="var(--fg)"><title>Oct 13: $2,181.03 cumulative</title></circle>
+<circle cx="421.0" cy="227.9" r="3" fill="var(--fg)"><title>Oct 14: $2,215.70 cumulative</title></circle>
+<circle cx="471.0" cy="217.6" r="3" fill="var(--fg)"><title>Oct 15: $2,530.06 cumulative</title></circle>
+<circle cx="521.0" cy="203.3" r="3" fill="var(--fg)"><title>Oct 16: $2,971.46 cumulative</title></circle>
+<circle cx="571.0" cy="193.0" r="3" fill="var(--fg)"><title>Oct 17: $3,286.84 cumulative</title></circle>
+<circle cx="621.0" cy="180.3" r="3" fill="var(--fg)"><title>Oct 18: $3,676.23 cumulative</title></circle>
+<circle cx="671.0" cy="168.4" r="3" fill="var(--fg)"><title>Oct 19: $4,043.05 cumulative</title></circle>
+<circle cx="721.0" cy="166.9" r="3" fill="var(--fg)"><title>Lyft Prop 22 (Oct 5–19), paid Oct 21: $4,088.21 cumulative</title></circle>
+<text x="671.0" y="184.4" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="11">$4,043</text>
+<text x="715.0" y="158.9" text-anchor="end" fill="var(--fg)" font-family="var(--mono)" font-size="11">$4,088</text>
+<text x="46" y="156" fill="var(--muted)" font-size="10" letter-spacing=".08em">CUMULATIVE $ (UBER PROP 22 ON OCT 14; LYFT PROP 22 AT THE END)</text>
+<text x="71.0" y="322" text-anchor="middle" fill="var(--muted)">7</text>
+<text x="121.0" y="322" text-anchor="middle" fill="var(--muted)">8</text>
+<text x="171.0" y="322" text-anchor="middle" fill="var(--muted)">9</text>
+<text x="221.0" y="322" text-anchor="middle" fill="var(--muted)">10</text>
+<text x="271.0" y="322" text-anchor="middle" fill="var(--muted)">11</text>
+<text x="321.0" y="322" text-anchor="middle" fill="var(--muted)">12</text>
+<text x="371.0" y="322" text-anchor="middle" fill="var(--muted)">13</text>
+<text x="421.0" y="322" text-anchor="middle" fill="var(--muted)">14</text>
+<text x="471.0" y="322" text-anchor="middle" fill="var(--muted)">15</text>
+<text x="521.0" y="322" text-anchor="middle" fill="var(--muted)">16</text>
+<text x="571.0" y="322" text-anchor="middle" fill="var(--muted)">17</text>
+<text x="621.0" y="322" text-anchor="middle" fill="var(--muted)">18</text>
+<text x="671.0" y="322" text-anchor="middle" fill="var(--muted)">19</text>
+<text x="721.0" y="322" text-anchor="middle" fill="var(--accent)" font-size="10">P22</text>
+<rect x="705.5" y="115.0" width="31.0" height="11.0" fill="var(--lyft)" opacity=".55"><title>Lyft Prop 22 top-up $45.16</title></rect>
+<text x="721.0" y="111.0" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="10">45</text>
+<text x="46" y="322" text-anchor="end" fill="var(--muted)">Oct</text></svg></div>
+<div class="prose">
+<p>The sheet is the driver&#8217;s own ledger, kept daily: what each app paid, tips, the time and miles each app counted as booked, the odometer, and what charging the car cost. The cards below show it day by day, plus what the ride-level record adds: when the day started and ended, how many rides, the biggest fare, how far it ranged. <strong>Booked</strong> time and miles are the apps&#8217; own daily figures (accept to drop-off, so they exceed time with a passenger aboard). <strong>Unbooked</strong> miles are the odometer minus booked miles, so they include the commute from Covina and back as well as the gaps between rides; the map&#8217;s &#8220;empty miles&#8221; count only the gaps. Per-hour and per-mile figures here use the booked basis, which is why they sit below the per-trip-hour rates on the Earnings page.</p>
+</div>
+<div class="daygrid">
+<div class="panel day">
+  <div class="dh"><h2>Wed Oct 7</h2><b class="tot">$325.54</b></div>
+  <div class="split" role="img" aria-label="Lyft $321.69, Uber $3.85"><i style="width:98.8%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $321.69 &#183; 28 rides</span><span class="ub">Uber $3.85 &#183; 1</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>6:36 AM &#8211; 7:56 PM</b><small>13h20 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>10h59</b><small>Lyft 10:50 &#183; Uber 0:09 &#183; $29.64/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>250 on the odometer</b><small>199 booked &#183; 51 unbooked (20%) &#183; $1.30/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$12.28</b><small>Lyft $12.28 &#183; Uber $0.00</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$29.69 &#183; $1.63 Lyft</b><small>$25.67 &#183; $2.20 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$15.69</b><small>4.8% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$325.54</b><small>11% of $3,000 &#183; $2,674.46 to go</small></div>
+    <div class="dk"><span>Rides</span><b>29 &#183; 1 to LAX &#183; 14 stacked</b><small>163 paid mi &#183; 31 empty mi between rides &#183; farthest 32 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Lyft 5:13 PM, Narbonne Avenue, Harbor Hills, Lomita &#8594; Wilshire Boulevard, Financial District, Downtown, 21.8 mi, $29.04. Sheet total runs $13.69 above the per-ride record (cancellation fees and day-boundary rides).</p>
+  <a class="go" href="map.html#day-2026-10-07">Open Oct 7 on the map &#8594;</a>
+</div><div class="panel day">
+  <div class="dh"><h2>Thu Oct 8</h2><b class="tot">$259.91</b></div>
+  <div class="split" role="img" aria-label="Lyft $204.41, Uber $55.50"><i style="width:78.6%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $204.41 &#183; 15 rides</span><span class="ub">Uber $55.50 &#183; 6</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>5:00 AM &#8211; 3:11 PM</b><small>10h11 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>8h47</b><small>Lyft 7:11 &#183; Uber 1:36 &#183; $29.59/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>190 on the odometer</b><small>154 booked &#183; 36 unbooked (19%) &#183; $1.37/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$31.07</b><small>Lyft $12.07 &#183; Uber $19.00</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$28.46 &#183; $1.49 Lyft</b><small>$34.69 &#183; $3.38 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$21.38</b><small>8.2% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$585.45</b><small>20% of $3,000 &#183; $2,414.55 to go</small></div>
+    <div class="dk"><span>Rides</span><b>21 &#183; 2 to LAX &#183; 3 stacked</b><small>125 paid mi &#183; 28 empty mi between rides &#183; farthest 32 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Lyft 5:48 AM, Elderway Drive, Hacienda Heights &#8594; The Culver Studios, 9336 Washington Blvd, 28.7 mi, $43.29. Sheet total runs $10.07 below the per-ride record (cancellation fees and day-boundary rides).</p>
+  <a class="go" href="map.html#day-2026-10-08">Open Oct 8 on the map &#8594;</a>
+</div><div class="panel day">
+  <div class="dh"><h2>Fri Oct 9</h2><b class="tot">$409.79</b></div>
+  <div class="split" role="img" aria-label="Lyft $277.48, Uber $132.31"><i style="width:67.7%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $277.48 &#183; 25 rides</span><span class="ub">Uber $132.31 &#183; 13</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>6:32 AM &#8211; 11:31 PM</b><small>16h59 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>15h06</b><small>Lyft 10:13 &#183; Uber 4:53 &#183; $27.14/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>313 on the odometer</b><small>240 booked &#183; 73 unbooked (23%) &#183; $1.31/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$24.66</b><small>Lyft $7.94 &#183; Uber $16.72</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$27.16 &#183; $1.69 Lyft</b><small>$27.09 &#183; $1.76 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$12.20</b><small>3.0% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$995.24</b><small>33% of $3,000 &#183; $2,004.76 to go</small></div>
+    <div class="dk"><span>Rides</span><b>38 &#183; 1 to LAX &#183; 9 stacked</b><small>209 paid mi &#183; 41 empty mi between rides &#183; farthest 34 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Lyft 1:13 PM, West Pico Boulevard, Pico-Robertson, Los Angeles &#8594; East Spring Street, Signal Hill, 25.8 mi, $35.04.</p>
+  <a class="go" href="map.html#day-2026-10-09">Open Oct 9 on the map &#8594;</a>
+</div><div class="panel day">
+  <div class="dh"><h2>Sat Oct 10</h2><b class="tot">$347.94</b></div>
+  <div class="split" role="img" aria-label="Lyft $284.29, Uber $63.65"><i style="width:81.7%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $284.29 &#183; 13 rides</span><span class="ub">Uber $63.65 &#183; 4</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>8:04 AM &#8211; 7:52 PM</b><small>11h48 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>9h35</b><small>Lyft 7:23 &#183; Uber 2:12 &#183; $36.31/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>256 on the odometer</b><small>211 booked &#183; 46 unbooked (18%) &#183; $1.36/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$53.13</b><small>Lyft $53.13 &#183; Uber $0.00</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$38.50 &#183; $1.80 Lyft</b><small>$28.93 &#183; $1.21 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$24.22</b><small>7.0% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$1,343.18</b><small>45% of $3,000 &#183; $1,656.82 to go</small></div>
+    <div class="dk"><span>Rides</span><b>17 &#183; 2 to LAX &#183; 3 stacked</b><small>193 paid mi &#183; 30 empty mi between rides &#183; farthest 35 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Lyft 4:10 PM, Los Angeles &#8594; Westchester, Los Angeles, 26.8 mi, $101.78. Sheet total runs $3.18 below the per-ride record (cancellation fees and day-boundary rides).</p>
+  <a class="go" href="map.html#day-2026-10-10">Open Oct 10 on the map &#8594;</a>
+</div><div class="panel day">
+  <div class="dh"><h2>Sun Oct 11</h2><b class="tot">$327.39</b></div>
+  <div class="split" role="img" aria-label="Lyft $249.02, Uber $78.37"><i style="width:76.1%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $249.02 &#183; 26 rides</span><span class="ub">Uber $78.37 &#183; 7</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>6:08 AM &#8211; 6:17 PM</b><small>12h09 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>10h39</b><small>Lyft 8:18 &#183; Uber 2:21 &#183; $30.74/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>259 on the odometer</b><small>198 booked &#183; 61 unbooked (23%) &#183; $1.26/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$27.29</b><small>Lyft $20.29 &#183; Uber $7.00</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$30.00 &#183; $1.55 Lyft</b><small>$33.35 &#183; $2.08 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$16.77</b><small>5.1% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$1,670.57</b><small>56% of $3,000 &#183; $1,329.43 to go</small></div>
+    <div class="dk"><span>Rides</span><b>33 &#183; 2 to LAX &#183; 8 stacked</b><small>170 paid mi &#183; 33 empty mi between rides &#183; farthest 32 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Lyft 7:33 AM, McKinley Avenue, Florence, Los Angeles &#8594; Bluffside Drive, 16.9 mi, $18.14. Sheet total runs $1.18 above the per-ride record (cancellation fees and day-boundary rides).</p>
+  <a class="go" href="map.html#day-2026-10-11">Open Oct 11 on the map &#8594;</a>
+</div><div class="panel day">
+  <div class="dh"><h2>Mon Oct 12</h2><b class="tot">$117.80</b></div>
+  <div class="split" role="img" aria-label="Lyft $112.90, Uber $4.90"><i style="width:95.8%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $112.90 &#183; 8 rides</span><span class="ub">Uber $4.90 &#183; 1</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>8:25 AM &#8211; 12:37 PM</b><small>4h12 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>3h47</b><small>Lyft 3:36 &#183; Uber 0:11 &#183; $31.08/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>147 on the odometer</b><small>101 booked &#183; 46 unbooked (31%) &#183; $0.80/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$16.97</b><small>Lyft $16.97 &#183; Uber $0.00</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$31.36 &#183; $1.16 Lyft</b><small>$25.79 &#183; $1.22 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$11.76</b><small>10.0% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$1,788.37</b><small>60% of $3,000 &#183; $1,211.63 to go</small></div>
+    <div class="dk"><span>Rides</span><b>9 &#183; 0 to LAX &#183; 2 stacked</b><small>90 paid mi &#183; 8 empty mi between rides &#183; farthest 23 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Lyft 10:58 AM, Flotilla Street, Commerce &#8594; College Place, Fullerton, 23.2 mi, $20.15. Sheet total runs $2.00 above the per-ride record (cancellation fees and day-boundary rides).</p>
+  <a class="go" href="map.html#day-2026-10-12">Open Oct 12 on the map &#8594;</a>
+</div><div class="panel day">
+  <div class="dh"><h2>Tue Oct 13</h2><b class="tot">$392.66</b></div>
+  <div class="split" role="img" aria-label="Lyft $309.75, Uber $82.91"><i style="width:78.9%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $309.75 &#183; 20 rides</span><span class="ub">Uber $82.91 &#183; 7</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>6:41 AM &#8211; 8:38 PM</b><small>13h57 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>13h12</b><small>Lyft 10:20 &#183; Uber 2:52 &#183; $29.75/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>231 on the odometer</b><small>203 booked &#183; 28 unbooked (12%) &#183; $1.70/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$39.76</b><small>Lyft $15.98 &#183; Uber $23.78</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$29.98 &#183; $1.90 Lyft</b><small>$28.92 &#183; $2.07 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$15.48</b><small>3.9% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$2,181.03</b><small>73% of $3,000 &#183; $818.97 to go</small></div>
+    <div class="dk"><span>Rides</span><b>27 &#183; 0 to LAX &#183; 9 stacked</b><small>181 paid mi &#183; 25 empty mi between rides &#183; farthest 36 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Uber 3:54 PM, N Larchmont Blvd, Los Angeles &#8594; E Walnut St, Pasadena, 14.4 mi, $33.72. Sheet total runs $0.09 above the per-ride record (cancellation fees and day-boundary rides).</p>
+  <a class="go" href="map.html#day-2026-10-13">Open Oct 13 on the map &#8594;</a>
+</div><div class="panel day off"><div class="dh"><h2>Wed Oct 14</h2><b class="tot">Off</b></div><p class="note">No rides. The running total stays at $2,181.03.</p></div><div class="panel day adj"><div class="dh"><h2>Prop 22 &#183; Uber</h2><b class="tot">$34.67</b></div><p class="note">Guarantee top-up for Sep 28&#8211;Oct 12, booked on the sheet between Oct 14 and 15.</p></div><div class="panel day">
+  <div class="dh"><h2>Thu Oct 15</h2><b class="tot">$314.36</b></div>
+  <div class="split" role="img" aria-label="Lyft $243.01, Uber $71.35"><i style="width:77.3%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $243.01 &#183; 20 rides</span><span class="ub">Uber $71.35 &#183; 4</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>8:44 AM &#8211; 7:55 PM</b><small>11h11 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>9h21</b><small>Lyft 8:06 &#183; Uber 1:15 &#183; $33.62/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>184 on the odometer</b><small>159 booked &#183; 25 unbooked (14%) &#183; $1.71/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$32.43</b><small>Lyft $17.43 &#183; Uber $15.00</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$30.00 &#183; $1.90 Lyft</b><small>$57.07 &#183; $2.26 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$9.30</b><small>3.0% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$2,530.06</b><small>84% of $3,000 &#183; $469.94 to go</small></div>
+    <div class="dk"><span>Rides</span><b>24 &#183; 1 to LAX &#183; 10 stacked</b><small>140 paid mi &#183; 16 empty mi between rides &#183; farthest 33 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Uber 12:39 PM, Truxton Ave, Los Angeles &#8594; Wilshire Blvd, Beverly Hills, 11.2 mi, $32.08.</p>
+  <a class="go" href="map.html#day-2026-10-15">Open Oct 15 on the map &#8594;</a>
+</div><div class="panel day">
+  <div class="dh"><h2>Fri Oct 16</h2><b class="tot">$441.40</b></div>
+  <div class="split" role="img" aria-label="Lyft $371.57, Uber $69.83"><i style="width:84.2%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $371.57 &#183; 22 rides</span><span class="ub">Uber $69.83 &#183; 6</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>4:35 AM &#8211; 8:51 PM</b><small>16h16 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>13h35</b><small>Lyft 12:02 &#183; Uber 1:33 &#183; $32.48/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>283 on the odometer</b><small>211 booked &#183; 71 unbooked (25%) &#183; $1.56/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$59.67</b><small>Lyft $42.67 &#183; Uber $17.00</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$30.88 &#183; $2.05 Lyft</b><small>$44.90 &#183; $2.34 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$24.44</b><small>5.5% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$2,971.46</b><small>99% of $3,000 &#183; $28.54 to go</small></div>
+    <div class="dk"><span>Rides</span><b>28 &#183; 4 to LAX &#183; 11 stacked</b><small>187 paid mi &#183; 34 empty mi between rides &#183; farthest 34 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Lyft 3:59 PM, Fox Hills Drive, Fox Hills, Culver City &#8594; USH Upper Lot Walkways, Universal City, 13.7 mi, $49.79. Sheet total runs $1.24 above the per-ride record (cancellation fees and day-boundary rides).</p>
+  <a class="go" href="map.html#day-2026-10-16">Open Oct 16 on the map &#8594;</a>
+</div><div class="panel day">
+  <div class="dh"><h2>Sat Oct 17</h2><b class="tot">$315.38</b></div>
+  <div class="split" role="img" aria-label="Lyft $248.81, Uber $66.57"><i style="width:78.9%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $248.81 &#183; 16 rides</span><span class="ub">Uber $66.57 &#183; 5</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>8:14 AM &#8211; 7:10 PM</b><small>10h56 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>9h38</b><small>Lyft 7:50 &#183; Uber 1:48 &#183; $32.71/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>271 on the odometer</b><small>218 booked &#183; 53 unbooked (20%) &#183; $1.16/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$33.82</b><small>Lyft $33.82 &#183; Uber $0.00</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$31.76 &#183; $1.51 Lyft</b><small>$36.84 &#183; $1.26 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$19.72</b><small>6.3% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$3,286.84</b><small>$3,000 goal passed &#183; $713.16 to $4,000</small></div>
+    <div class="dk"><span>Rides</span><b>21 &#183; 0 to LAX &#183; 9 stacked</b><small>203 paid mi &#183; 14 empty mi between rides &#183; farthest 36 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Lyft 10:50 AM, Fleet Street, Venice, Los Angeles &#8594; Eshelman Avenue, Harbor Hills, Lomita, 20.9 mi, $31.82. Sheet total runs $2.73 above the per-ride record (cancellation fees and day-boundary rides).</p>
+  <a class="go" href="map.html#day-2026-10-17">Open Oct 17 on the map &#8594;</a>
+</div><div class="panel day">
+  <div class="dh"><h2>Sun Oct 18</h2><b class="tot">$389.39</b></div>
+  <div class="split" role="img" aria-label="Lyft $208.01, Uber $181.38"><i style="width:53.4%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $208.01 &#183; 12 rides</span><span class="ub">Uber $181.38 &#183; 10</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>6:43 AM &#8211; 10:04 PM</b><small>15h21 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>8h39</b><small>Lyft 5:11 &#183; Uber 3:28 &#183; $44.96/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>270 on the odometer</b><small>205 booked &#183; 65 unbooked (24%) &#183; $1.44/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$88.86</b><small>Lyft $57.21 &#183; Uber $31.65</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$40.13 &#183; $1.74 Lyft</b><small>$52.17 &#183; $2.12 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$20.88</b><small>5.4% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$3,676.23</b><small>$3,000 goal passed &#183; $323.77 to $4,000</small></div>
+    <div class="dk"><span>Rides</span><b>22 &#183; 3 to LAX &#183; 4 stacked</b><small>187 paid mi &#183; 47 empty mi between rides &#183; farthest 36 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Lyft 4:43 PM, West 4th Street, Long Beach &#8594; Harbor Boulevard, Costa Mesa, 19.4 mi, $46.30.</p>
+  <a class="go" href="map.html#day-2026-10-18">Open Oct 18 on the map &#8594;</a>
+</div><div class="panel day">
+  <div class="dh"><h2>Mon Oct 19</h2><b class="tot">$366.82</b></div>
+  <div class="split" role="img" aria-label="Lyft $279.12, Uber $87.70"><i style="width:76.1%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $279.12 &#183; 21 rides</span><span class="ub">Uber $87.70 &#183; 6</span></div>
+  <div class="dks">
+    <div class="dk"><span>On the road</span><b>6:00 AM &#8211; 7:38 PM</b><small>13h38 first accept to last drop-off</small></div>
+    <div class="dk"><span>Booked time</span><b>11h08</b><small>Lyft 8:53 &#183; Uber 2:15 &#183; $32.95/booked hr</small></div>
+    <div class="dk"><span>Miles</span><b>246 on the odometer</b><small>186 booked &#183; 60 unbooked (25%) &#183; $1.49/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$45.43</b><small>Lyft $45.43 &#183; Uber $0.00</small></div>
+    <div class="dk"><span>Per hour / mile</span><b>$31.42 &#183; $2.04 Lyft</b><small>$38.98 &#183; $1.77 Uber (booked basis)</small></div>
+    <div class="dk"><span>Charging</span><b>$21.70</b><small>5.9% of the day</small></div>
+    <div class="dk"><span>Running total</span><b>$4,043.05</b><small>both goals passed</small></div>
+    <div class="dk"><span>Rides</span><b>27 &#183; 4 to LAX &#183; 6 stacked</b><small>166 paid mi &#183; 41 empty mi between rides &#183; farthest 39 mi from Covina</small></div>
+  </div>
+  <p class="note">Biggest fare: Lyft 6:17 AM, West 2nd Street, Gallery Row, Civic Center &#8594; Westchester, Los Angeles, 19.2 mi, $50.11.</p>
+  <a class="go" href="map.html#day-2026-10-19">Open Oct 19 on the map &#8594;</a>
+</div><div class="panel day adj"><div class="dh"><h2>Prop 22 &#183; Lyft</h2><b class="tot">$45.16</b></div><p class="note">Guarantee top-up for Oct 5&#8211;19, paid Oct 21: Lyft counted 91 h 02 m booked and 1,671 booked miles for a floor of $2,586.31 against $2,541.15 eligible. It arrived after the sheet was last updated, so it is not in the sheet&#8217;s $4,043.05; the totals below include it.</p></div><div class="panel day total">
+  <div class="dh"><h2>Final totals</h2><b class="tot">$4,088.21</b></div>
+  <div class="split"><i style="width:77.2%"></i></div>
+  <div class="splitlab"><span class="lf">Lyft $3,155.22 &#183; 226 rides</span><span class="ub">Uber $932.99 &#183; 70</span></div>
+  <div class="dks">
+    <div class="dk"><span>Goals</span><b>All four crossed</b><small>$2,400 floor on Oct 15 &#183; $3,000 goal Oct 17 &#183; extender Oct 18 &#183; $4,000 final goal Oct 19</small></div>
+    <div class="dk"><span>Booked time</span><b>124h26</b><small>Lyft 99:53 &#183; Uber 24:33 &#183; $32.50/booked hr overall</small></div>
+    <div class="dk"><span>Miles</span><b>2,901 on the odometer</b><small>2,285 booked &#183; 616 unbooked (21%) &#183; $1.39/odometer mi</small></div>
+    <div class="dk"><span>Tips</span><b>$465.37</b><small>Lyft $335.22 &#183; Uber $130.15 &#8212; $1.48 and $1.86 per ride</small></div>
+    <div class="dk"><span>Prop 22</span><b>$79.83</b><small>Uber $34.67 (Sep 28&#8211;Oct 12) &#183; Lyft $45.16 (Oct 5&#8211;19)</small></div>
+    <div class="dk"><span>Sheet vs here</span><b>$4,043.05 on the sheet</b><small>plus the Lyft Prop 22 $45.16 that landed Oct 21 = $4,088.21</small></div>
+    <div class="dk"><span>Charging</span><b>$213.54</b><small>5.2% of gross &#183; net $3,874.67</small></div>
+  </div>
+</div>
+</div>
+<div class="prose">
+<h2>What the days say</h2>
+<p>The shape is a $300-a-day job with two kinds of exception. The thin days are the short ones: Oct 12 ($117.80) was a four-hour Sunday that ended in Anaheim at 12:37 PM; Oct 8 ($259.91) stopped at 3 PM in West Covina. The fat days are the ones with a long afternoon: Oct 16 ($441.40, the best day) had four LAX drop-offs and a 12-hour Lyft clock; Oct 9 ($409.79) was 38 rides and the latest finish, 11:31 PM in LA; Oct 18 ($389.39) was the only day Uber nearly matched Lyft, ten trips including the Pacific Palisades and Long Beach&#8211;Costa Mesa runs. The $3,000 goal fell on Oct 17 and the $4,000 final goal on Oct 19, the last day, by $43; Lyft&#8217;s Prop 22 top-up two days later added $45.16 on top, for $4,088.21.</p>
+<p>Charging ran $9 to $24 a day and 5.3% of gross overall. The odometer logged 2,901 miles against 2,285 booked: 616 unbooked miles, 21%, of which the ride record accounts for 348 as gaps between rides; the rest, roughly 270 miles over twelve days, is the drive out from Covina and home again.</p>
+</div>
+
+<footer>Built from the driver's own Lyft and Uber exports, a phone GPS trail, the earnings sheet, two Prop 22 statements, and seven routes recalled from memory. Every figure on these pages is computed from those files; where a number is an estimate it says so.</footer>
+</div>

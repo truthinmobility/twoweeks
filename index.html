@@ -1,0 +1,139 @@
+<title>October Ride Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a full-bleed map on top, a dispatch-sheet panel of day bars and hour histogram beneath. Colors come from the two platforms' brand hues, muted onto a road-grey ground. */
+:root{
+  --bg:#f3f2ee; --surface:#ffffff; --fg:#1d1f24; --muted:#5f6471; --line:#d9d8d2;
+  --lyft:#d9218a; --uber:#1f6f8b; --accent:#c0532b; --mapbg:#e9e7e1; --grid:#dedcd5;
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;
+  --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark }
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);margin:0}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 32px;max-width:1240px;margin:0 auto;display:grid;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(32px,5vw,48px);letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+.sub{color:var(--muted);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.stat{background:var(--surface);padding:10px 12px;min-width:0}
+.stat b{display:block;font-family:var(--display);font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat small{display:block;font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:3px}
+.controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:5px 10px;font:500 13px var(--body);cursor:pointer;border-radius:999px}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip.lyft[aria-pressed="true"]{background:var(--lyft);border-color:var(--lyft);color:#fff}
+.chip.uber[aria-pressed="true"]{background:var(--uber);border-color:var(--uber);color:#fff}
+.chip:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sep{color:var(--muted);padding:0 4px}
+#map{height:min(68vh,640px);min-height:380px;background:var(--mapbg);border:1px solid var(--line)}
+.leaflet-container{background:var(--mapbg);font-family:var(--body)}
+.leaflet-bar a{background:var(--surface);color:var(--fg);border-bottom-color:var(--line)}
+.leaflet-bar a:hover{background:var(--bg)}
+.leaflet-tooltip{background:var(--surface);color:var(--fg);border:1px solid var(--line);font:12px var(--body);box-shadow:none;padding:6px 8px;max-width:260px;white-space:normal}
+.leaflet-tooltip b{font-family:var(--mono)}
+.leaflet-tooltip-top:before{border-top-color:var(--line)}
+.place{font:600 11px var(--body);color:var(--muted);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;background:none;border:none;box-shadow:none;pointer-events:none}
+.mapnote{font-size:12px;color:var(--muted)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:5px}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.panel{background:var(--surface);border:1px solid var(--line);padding:14px;min-width:0}
+h2{font-family:var(--display);font-weight:500;font-size:20px;margin:0 0 10px;letter-spacing:.02em}
+h2 small{font:400 12px var(--body);color:var(--muted);margin-left:8px}
+.days{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.days .d{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.days .bar{height:14px;background:var(--grid);position:relative;min-width:0}
+.days .bar i{position:absolute;left:0;top:0;bottom:0}
+.days .bar .l{background:var(--lyft)} .days .bar .u{background:var(--uber)}
+.days .v{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;text-align:right}
+.days button{all:unset;cursor:pointer;display:contents}
+.days .row:hover .d{color:var(--fg)}
+svg text{fill:var(--muted);font:11px var(--mono)}
+svg .hbar{fill:var(--accent)} svg .axis{stroke:var(--line)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td{padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
+td.num{font-family:var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td .pl{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.chip.dead[aria-pressed="true"],.chip.acc[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:13px}
+.kv .k{color:var(--muted)} .kv .v{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.kv .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.kv .h:first-child{margin-top:0;border:0;padding-top:0}
+.cl{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.cl .bar{height:12px;background:var(--grid);position:relative} .cl .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--lyft)} .cl .bar i.u{background:var(--uber)} .cl .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.note{font-size:12px;color:var(--muted);margin-top:8px;max-width:65ch}
+.foot{font-size:12px;color:var(--muted);max-width:65ch}
+@media (prefers-reduced-motion:no-preference){.chip{transition:background .15s}}
+
+nav{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:10px}
+nav .brand{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.01em;color:var(--fg);text-decoration:none;margin-right:auto}
+nav a{color:var(--muted);text-decoration:none;font-size:14px;padding:4px 0}
+nav a:hover,nav a[aria-current]{color:var(--fg);border-bottom:2px solid var(--accent)}
+.hero{display:grid;gap:14px}
+.hero img{width:100%;max-width:100%;height:auto;border:1px solid var(--line);display:block}
+.lede{font-size:17px;line-height:1.55;max-width:65ch}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{border:1px solid var(--line);background:var(--surface);padding:16px;text-decoration:none;color:var(--fg);display:grid;gap:8px;min-width:0}
+.card:hover{border-color:var(--accent)}
+.card h3{font-family:var(--display);font-weight:500;font-size:22px;margin:0;letter-spacing:.02em}
+.card p{margin:0;font-size:14px;color:var(--muted);line-height:1.5}
+.card .go{font-size:13px;color:var(--accent);font-weight:600}
+.prose{max-width:68ch;font-size:15px;line-height:1.6}
+.prose h2{margin-top:22px}
+.prose p{margin:0 0 12px}
+.prose table{font-size:14px} .prose td,.prose th{padding:6px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+.prose th{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-top:0}
+.prose .num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.callout{border-left:3px solid var(--accent);padding:8px 12px;background:var(--surface);font-size:14px;margin:12px 0}
+footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+</style>
+<div class="wrap">
+<nav><a class="brand" href="index.html">October Ride Map</a><a href="index.html" aria-current="page">Home</a><a href="map.html">Map</a><a href="earnings.html">Earnings</a><a href="days.html">Day by day</a><a href="patterns.html">Patterns</a><a href="findings.html">Findings</a><a href="method.html">Data & method</a></nav>
+
+<div class="hero">
+  <img src="hero.png" alt="Every ride from Oct 7–19, 2026 drawn on a plain map of Los Angeles County, Lyft in pink and Uber in blue, with the caption 2 weeks of rides, recorded and mapped." width="1640" height="1475">
+  <p class="lede">Two weeks of driving for Lyft and Uber across Los Angeles, October 7–19, 2026: 296 rides, 2,015 paid miles, $4,088.21 gross. Everything here comes from the driver's own exports, a phone GPS trail, the earnings sheet and the Prop 22 statements, reconciled against each other and, where the trail went dark, filled in from road routing and memory.</p>
+</div>
+<div class="stats" id="stats"></div>
+<div class="cards">
+  <a class="card" href="map.html"><h3>Map</h3><p>Every ride drawn on the roads it took: 229 from GPS traces, 61 road-routed from their endpoints, 6 traces with gaps filled, and 7 drawn from the driver's recollection. Filter by day or platform, toggle deadhead legs, accept-to-pickup legs and pickup clusters.</p><span class="go">Open the map →</span></a>
+  <a class="card" href="earnings.html"><h3>Earnings</h3><p>Where $4,088.21 came from: ride pay split into base, tips, bonuses and promotions per platform, the two Prop 22 guarantee top-ups, charging costs, the day-by-day totals and the biggest fares.</p><span class="go">See the money →</span></a>
+  <a class="card" href="days.html"><h3>Day by day</h3><p>The driver's own earnings sheet, one card per day: Lyft and Uber dollars, tips, booked hours and miles, odometer miles, charging, the running total against the $2,400 floor and the $3,000 and $4,000 goals, and the rides behind each day.</p><span class="go">Walk the twelve days &#8594;</span></a>
+  <a class="card" href="patterns.html"><h3>Patterns</h3><p>What the geography says: 17 Lyft pickup clusters against 2 for Uber, 18.6% empty miles on Lyft versus 37.8% on Uber, the 7-minute median drive to each pickup, LAX as a destination rather than an origin, and the hours that paid.</p><span class="go">Read the patterns →</span></a>
+  <a class="card" href="findings.html"><h3>Findings</h3><p>Sixteen questions put to the data after the map was built: what leaving LAX really costs and whether the airport run is still worth it, where 8.5 hours of Lyft's booked time went, what Uber keeps of the rider's price, who tips and when, which empty miles were avoidable, and which of all this is the driver rather than the market.</p><span class="go">Read the answers &#8594;</span></a>
+  <a class="card" href="method.html"><h3>Data &amp; method</h3><p>The six source files, how each ride's line was produced, the accept-time correction, the thirteen mismatched traces, the Oct 19 GPS blackout, the seven recalled routes, and the open questions.</p><span class="go">How it was built →</span></a>
+</div>
+
+<footer>Built from the driver's own Lyft and Uber exports, a phone GPS trail, the earnings sheet, two Prop 22 statements, and seven routes recalled from memory. Every figure on these pages is computed from those files; where a number is an estimate it says so.</footer>
+</div>
+<script src="data.js"></script>
+<script>
+(function(){
+const D=window.RIDES, S=D.summary;
+const $=s=>document.querySelector(s);
+const money=v=>'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0=v=>'$'+Math.round(v).toLocaleString('en-US');
+const fmtDay=d=>{const [y,m,dd]=d.split('-');return new Date(y,m-1,dd).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})};
+// stats
+const stats=[
+ ['Rides',S.rides,`${S.lyft.n} Lyft · ${S.uber.n} Uber`],
+ ['Paid miles',Math.round(S.mi).toLocaleString(),`median 4.9 mi`],
+ ['Ride pay',money0(S.usd),`${money(S.usd/S.mi)} / mi · Uber tips included`],
+ ['Gross with Prop 22',money0(S.usd+S.lyft.prop22+S.uber.prop22+S.lyft.cancel),`+ $${(S.lyft.prop22+S.uber.prop22).toFixed(2)} Prop 22 · $${S.lyft.cancel} cancels`],
+ ['Lyft',money0(S.lyft.usd),`${money(S.lyft.usd/S.lyft.mi)}/mi · ${money(S.lyft.usd/S.lyft.min*60)}/trip-hr`],
+ ['Uber',money0(S.uber.usd),`${money(S.uber.usd/S.uber.mi)}/mi · ${money(S.uber.usd/S.uber.min*60)}/trip-hr`],
+];
+$('#stats').innerHTML=stats.map(s=>`<div class="stat"><span>${s[0]}</span><b>${s[1]}</b><small>${s[2]}</small></div>`).join('');
+
+
+})();
+</script>

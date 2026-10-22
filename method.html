@@ -1,0 +1,146 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>October Ride Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a full-bleed map on top, a dispatch-sheet panel of day bars and hour histogram beneath. Colors come from the two platforms' brand hues, muted onto a road-grey ground. */
+:root{
+  --bg:#f3f2ee; --surface:#ffffff; --fg:#1d1f24; --muted:#5f6471; --line:#d9d8d2;
+  --lyft:#d9218a; --uber:#1f6f8b; --accent:#c0532b; --mapbg:#e9e7e1; --grid:#dedcd5;
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;
+  --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark }
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);margin:0}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 32px;max-width:1240px;margin:0 auto;display:grid;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(32px,5vw,48px);letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+.sub{color:var(--muted);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.stat{background:var(--surface);padding:10px 12px;min-width:0}
+.stat b{display:block;font-family:var(--display);font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat small{display:block;font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:3px}
+.controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:5px 10px;font:500 13px var(--body);cursor:pointer;border-radius:999px}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip.lyft[aria-pressed="true"]{background:var(--lyft);border-color:var(--lyft);color:#fff}
+.chip.uber[aria-pressed="true"]{background:var(--uber);border-color:var(--uber);color:#fff}
+.chip:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sep{color:var(--muted);padding:0 4px}
+#map{height:min(68vh,640px);min-height:380px;background:var(--mapbg);border:1px solid var(--line)}
+.leaflet-container{background:var(--mapbg);font-family:var(--body)}
+.leaflet-bar a{background:var(--surface);color:var(--fg);border-bottom-color:var(--line)}
+.leaflet-bar a:hover{background:var(--bg)}
+.leaflet-tooltip{background:var(--surface);color:var(--fg);border:1px solid var(--line);font:12px var(--body);box-shadow:none;padding:6px 8px;max-width:260px;white-space:normal}
+.leaflet-tooltip b{font-family:var(--mono)}
+.leaflet-tooltip-top:before{border-top-color:var(--line)}
+.place{font:600 11px var(--body);color:var(--muted);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;background:none;border:none;box-shadow:none;pointer-events:none}
+.mapnote{font-size:12px;color:var(--muted)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:5px}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.panel{background:var(--surface);border:1px solid var(--line);padding:14px;min-width:0}
+h2{font-family:var(--display);font-weight:500;font-size:20px;margin:0 0 10px;letter-spacing:.02em}
+h2 small{font:400 12px var(--body);color:var(--muted);margin-left:8px}
+.days{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.days .d{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.days .bar{height:14px;background:var(--grid);position:relative;min-width:0}
+.days .bar i{position:absolute;left:0;top:0;bottom:0}
+.days .bar .l{background:var(--lyft)} .days .bar .u{background:var(--uber)}
+.days .v{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;text-align:right}
+.days button{all:unset;cursor:pointer;display:contents}
+.days .row:hover .d{color:var(--fg)}
+svg text{fill:var(--muted);font:11px var(--mono)}
+svg .hbar{fill:var(--accent)} svg .axis{stroke:var(--line)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td{padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
+td.num{font-family:var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td .pl{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.chip.dead[aria-pressed="true"],.chip.acc[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:13px}
+.kv .k{color:var(--muted)} .kv .v{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.kv .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.kv .h:first-child{margin-top:0;border:0;padding-top:0}
+.cl{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.cl .bar{height:12px;background:var(--grid);position:relative} .cl .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--lyft)} .cl .bar i.u{background:var(--uber)} .cl .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.note{font-size:12px;color:var(--muted);margin-top:8px;max-width:65ch}
+.foot{font-size:12px;color:var(--muted);max-width:65ch}
+@media (prefers-reduced-motion:no-preference){.chip{transition:background .15s}}
+
+nav{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:10px}
+nav .brand{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.01em;color:var(--fg);text-decoration:none;margin-right:auto}
+nav a{color:var(--muted);text-decoration:none;font-size:14px;padding:4px 0}
+nav a:hover,nav a[aria-current]{color:var(--fg);border-bottom:2px solid var(--accent)}
+.hero{display:grid;gap:14px}
+.hero img{width:100%;max-width:100%;height:auto;border:1px solid var(--line);display:block}
+.lede{font-size:17px;line-height:1.55;max-width:65ch}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{border:1px solid var(--line);background:var(--surface);padding:16px;text-decoration:none;color:var(--fg);display:grid;gap:8px;min-width:0}
+.card:hover{border-color:var(--accent)}
+.card h3{font-family:var(--display);font-weight:500;font-size:22px;margin:0;letter-spacing:.02em}
+.card p{margin:0;font-size:14px;color:var(--muted);line-height:1.5}
+.card .go{font-size:13px;color:var(--accent);font-weight:600}
+.prose{max-width:68ch;font-size:15px;line-height:1.6}
+.prose h2{margin-top:22px}
+.prose p{margin:0 0 12px}
+.prose table{font-size:14px} .prose td,.prose th{padding:6px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+.prose th{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-top:0}
+.prose .num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.callout{border-left:3px solid var(--accent);padding:8px 12px;background:var(--surface);font-size:14px;margin:12px 0}
+footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+</style>
+<div class="wrap">
+<nav><a class="brand" href="index.html">October Ride Map</a><a href="index.html">Home</a><a href="map.html">Map</a><a href="earnings.html">Earnings</a><a href="days.html">Day by day</a><a href="patterns.html">Patterns</a><a href="findings.html">Findings</a><a href="method.html" aria-current="page">Data & method</a></nav>
+
+<header><h1>Data &amp; method</h1><div class="sub">What the files are, how each line on the map was made, and what was corrected along the way</div></header>
+<div class="prose">
+<h2>Source files</h2>
+<table>
+<tr><th>File</th><th>What it holds</th></tr>
+<tr><td>lyft-rides-export</td><td>Lyft's own export: accept, pickup and drop-off times and the driver's position at accept for all 226 rides.</td></tr>
+<tr><td>lyft-gps-endpoints-v4</td><td>Pickup and drop-off points reconstructed from the phone's GPS trail at the true pickup and drop-off times; six rides on Oct 19 have no trail and carry only the accept point.</td></tr>
+<tr><td>lyft-table-compact-v4</td><td>One row per Lyft ride with miles, duration and pay. Its time column is the accept time (see Corrections).</td></tr>
+<tr><td>uber-trip-data</td><td>Uber's trip table: product, fare, promotion, tip, customer fare and addresses for 70 trips, plus one Prop 22 adjustment row that is not a trip.</td></tr>
+<tr><td>per-ride-gps-export</td><td>Both platforms merged, 297 rows, with endpoints and their provenance.</td></tr>
+<tr><td>per-ride-routes (GeoJSON)</td><td>275 GPS traces from the earlier export, matched to rides by platform, date and start time.</td></tr>
+<tr><td>Earnings sheet, Prop 22 statements</td><td>Daily totals per platform, tips, charging costs; the Lyft (Oct 5–19) and Uber (Sep 28–Oct 12) guarantee statements.</td></tr>
+</table>
+
+<h2>How each ride's line was produced</h2>
+<table>
+<tr><th>Method</th><th class="num">Rides</th><th>Rule</th></tr>
+<tr><td>GPS trace</td><td class="num">229</td><td>A trace from the same platform and day starting within 30 minutes of the accept time and within 2.5 miles of the pickup, and ending within half a mile of the drop-off.</td></tr>
+<tr><td>Road-routed</td><td class="num">61</td><td>No usable trace. Shortest driving route on OpenStreetMap (OSRM) between the reconstructed pickup and drop-off. All 49 originally untraced rides came back between 0.78× and 1.26× of the billed distance, median 1.01×; 13 more were routed after their trace proved to belong to a different ride.</td></tr>
+<tr><td>Trace with gaps filled</td><td class="num">6</td><td>Trace cut out mid-ride (Laurel Canyon, the 110, a Hacienda Heights start). The missing stretch is road-routed from where the trace ends to the drop-off.</td></tr>
+<tr><td>Driver-recalled</td><td class="num">7</td><td>The driver supplied the pickup, drop-off and, where it mattered, the roads taken; routed through those points.</td></tr>
+</table>
+<div class="callout">Lines are styled by method on the map: solid for GPS, long dashes for road-routed, dotted where the pickup is unknown. Nothing drawn is presented as more certain than it is.</div>
+
+<h2>Corrections</h2>
+<p><strong>Time columns are accept times.</strong> The handoff brief described the Lyft compact table's time as the pickup time. Comparing it row by row against Lyft's own export shows it equals the accept time on 226 of 226 rides (and the pickup time on one). All time-of-day figures are therefore on an accept-time basis and say so; the median accept-to-pickup gap of 7 minutes moves the hour bands only slightly, and the Patterns page shows both.</p>
+<p><strong>Thirteen traces were attached to the wrong ride</strong> by the time-window matcher, mostly on Oct 7 and Oct 11 where rides were stacked minutes apart. Each was caught the same way: the trace ended 10 to 26 miles from the ride's actual drop-off. Those traces were discarded and the rides road-routed. One loop ride with identical pickup and drop-off addresses kept its original trace, since there is nothing to route between the same point twice.</p>
+<p><strong>The Oct 19 GPS blackout.</strong> The phone's location trail stops around 5 PM on Oct 19 on the drive up from Hawthorne. The last Uber trip with a real trace that day ends near Hawthorne Blvd and Rosecrans, nowhere near its Koreatown drop-off; the next two Uber trips are plotted from geocoded street names, and the five Lyft rides after 5:41 PM have only accept points. Lyft's export is complete for those rides (times, fares, accept positions); only the phone trail is missing. All six affected rides, plus the truncated Uber trip, were drawn from the driver's recollection.</p>
+<p><strong>Earnings reconciliation.</strong> The per-ride record under-reports Lyft by about $219 against the earnings sheet. Lyft's Prop 22 statement resolved it: eligible base pay of $2,541.15 plus tips of $335.22 matches the per-ride total within $15, so the remainder is bonus money Lyft pays outside the ride record. Uber reconciles to the penny on every day.</p>
+
+<h2>Recalled routes</h2>
+<table><tr><th>Ride</th><th>As recalled</th></tr><tr><td>2026-10-19 16:54 Uber</td><td>I-110 north, exit Pico, Koreatown, ended 8th & Vermont</td></tr><tr><td>2026-10-19 17:41 Lyft</td><td>pickup Wilshire & Carondelet, dropped at Grocery Outlet, 6th & Bixel</td></tr><tr><td>2026-10-19 18:01 Lyft</td><td>pickup 600 block of St Paul Ave, Downtown; dropped at Main St & Avenue 20, Lincoln Heights</td></tr><tr><td>2026-10-19 18:22 Lyft</td><td>pickup 1900 block of Zonal Ave, LAC+USC campus, dropped at Union Station East rideshare zone</td></tr><tr><td>2026-10-19 18:36 Lyft</td><td>pickup St Louis St & New Jersey St, Boyle Heights (accepted while near Union Station), dropped at Wabash Ave & Evergreen Ave</td></tr><tr><td>2026-10-19 19:26 Lyft</td><td>pickup 700 block of E Las Tunas Dr, San Gabriel (same passenger as the Union Station Uber, second stop); dropped at Hawaiian Supermarket, Valley Blvd & Del Mar Ave</td></tr><tr><td>2026-10-08 07:38 Lyft</td><td>pickup 2800 block of S Bedford St, Beverlywood, dropped at LAX Terminal 3</td></tr></table>
+<p>Five of the seven route within 0.3 miles of the billed distance. The two that don't (Las Tunas → Valley &amp; Del Mar, 2.53 routed vs 2.13 billed; Bedford → LAX T3, 7.78 vs 8.37) are ordinary route-choice differences.</p>
+
+<h2>Anomalies left in the data</h2>
+<p>Six rides have identical pickup and drop-off addresses with 0.8 to 5.9 billed miles (round trips or endpoint reuse). Two Oct 19 Uber rows carry geocoded endpoints whose straight-line distance exceeds the billed miles. Uber's trip-data timestamps run two to nine minutes before its compact-table times (request versus a later event). Three sub-1.4-mile Lyft rides paid $9 to $13, likely wait time or priority pricing; three rides over 12 miles paid under $0.90 a mile. Thirty-one GPS traces from the earlier export remain unmatched to any ride and are not drawn.</p>
+
+<h2>Context</h2>
+<p>This site is one track of a multi-model comparison on the same files: the same two stages (pattern summary, geospatial script) were run by two Claude Code tracks and by local models on the driver's own server, with a question round (the Findings page) and a scorecard to follow. The geospatial script behind the Patterns page is <code>geo_analysis.py</code>; its full output is preserved in the comparison record.</p>
+</div>
+
+<footer>Built from the driver's own Lyft and Uber exports, a phone GPS trail, the earnings sheet, two Prop 22 statements, and seven routes recalled from memory. Every figure on these pages is computed from those files; where a number is an estimate it says so.</footer>
+</div>

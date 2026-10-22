@@ -1,0 +1,169 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>October Ride Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a full-bleed map on top, a dispatch-sheet panel of day bars and hour histogram beneath. Colors come from the two platforms' brand hues, muted onto a road-grey ground. */
+:root{
+  --bg:#f3f2ee; --surface:#ffffff; --fg:#1d1f24; --muted:#5f6471; --line:#d9d8d2;
+  --lyft:#d9218a; --uber:#1f6f8b; --accent:#c0532b; --mapbg:#e9e7e1; --grid:#dedcd5;
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;
+  --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#15171b; --surface:#1e2127; --fg:#ecebe6; --muted:#9aa0ad; --line:#30343c;
+  --lyft:#ff4fb0; --uber:#5fb6d6; --accent:#e8794f; --mapbg:#1a1d22; --grid:#262a31; color-scheme:dark }
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);margin:0}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 32px;max-width:1240px;margin:0 auto;display:grid;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(32px,5vw,48px);letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+.sub{color:var(--muted);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.stat{background:var(--surface);padding:10px 12px;min-width:0}
+.stat b{display:block;font-family:var(--display);font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat small{display:block;font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:3px}
+.controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:5px 10px;font:500 13px var(--body);cursor:pointer;border-radius:999px}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip.lyft[aria-pressed="true"]{background:var(--lyft);border-color:var(--lyft);color:#fff}
+.chip.uber[aria-pressed="true"]{background:var(--uber);border-color:var(--uber);color:#fff}
+.chip:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sep{color:var(--muted);padding:0 4px}
+#map{height:min(68vh,640px);min-height:380px;background:var(--mapbg);border:1px solid var(--line)}
+.leaflet-container{background:var(--mapbg);font-family:var(--body)}
+.leaflet-bar a{background:var(--surface);color:var(--fg);border-bottom-color:var(--line)}
+.leaflet-bar a:hover{background:var(--bg)}
+.leaflet-tooltip{background:var(--surface);color:var(--fg);border:1px solid var(--line);font:12px var(--body);box-shadow:none;padding:6px 8px;max-width:260px;white-space:normal}
+.leaflet-tooltip b{font-family:var(--mono)}
+.leaflet-tooltip-top:before{border-top-color:var(--line)}
+.place{font:600 11px var(--body);color:var(--muted);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;background:none;border:none;box-shadow:none;pointer-events:none}
+.mapnote{font-size:12px;color:var(--muted)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:5px}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.panel{background:var(--surface);border:1px solid var(--line);padding:14px;min-width:0}
+h2{font-family:var(--display);font-weight:500;font-size:20px;margin:0 0 10px;letter-spacing:.02em}
+h2 small{font:400 12px var(--body);color:var(--muted);margin-left:8px}
+.days{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.days .d{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.days .bar{height:14px;background:var(--grid);position:relative;min-width:0}
+.days .bar i{position:absolute;left:0;top:0;bottom:0}
+.days .bar .l{background:var(--lyft)} .days .bar .u{background:var(--uber)}
+.days .v{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;text-align:right}
+.days button{all:unset;cursor:pointer;display:contents}
+.days .row:hover .d{color:var(--fg)}
+svg text{fill:var(--muted);font:11px var(--mono)}
+svg .hbar{fill:var(--accent)} svg .axis{stroke:var(--line)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td{padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
+td.num{font-family:var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td .pl{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.chip.dead[aria-pressed="true"],.chip.acc[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:13px}
+.kv .k{color:var(--muted)} .kv .v{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.kv .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.kv .h:first-child{margin-top:0;border:0;padding-top:0}
+.cl{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.cl .bar{height:12px;background:var(--grid);position:relative} .cl .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--lyft)} .cl .bar i.u{background:var(--uber)} .cl .h{grid-column:1/-1;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.note{font-size:12px;color:var(--muted);margin-top:8px;max-width:65ch}
+.foot{font-size:12px;color:var(--muted);max-width:65ch}
+@media (prefers-reduced-motion:no-preference){.chip{transition:background .15s}}
+
+nav{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:10px}
+nav .brand{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.01em;color:var(--fg);text-decoration:none;margin-right:auto}
+nav a{color:var(--muted);text-decoration:none;font-size:14px;padding:4px 0}
+nav a:hover,nav a[aria-current]{color:var(--fg);border-bottom:2px solid var(--accent)}
+.hero{display:grid;gap:14px}
+.hero img{width:100%;max-width:100%;height:auto;border:1px solid var(--line);display:block}
+.lede{font-size:17px;line-height:1.55;max-width:65ch}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{border:1px solid var(--line);background:var(--surface);padding:16px;text-decoration:none;color:var(--fg);display:grid;gap:8px;min-width:0}
+.card:hover{border-color:var(--accent)}
+.card h3{font-family:var(--display);font-weight:500;font-size:22px;margin:0;letter-spacing:.02em}
+.card p{margin:0;font-size:14px;color:var(--muted);line-height:1.5}
+.card .go{font-size:13px;color:var(--accent);font-weight:600}
+.prose{max-width:68ch;font-size:15px;line-height:1.6}
+.prose h2{margin-top:22px}
+.prose p{margin:0 0 12px}
+.prose table{font-size:14px} .prose td,.prose th{padding:6px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+.prose th{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-top:0}
+.prose .num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.callout{border-left:3px solid var(--accent);padding:8px 12px;background:var(--surface);font-size:14px;margin:12px 0}
+footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+</style>
+<div class="wrap">
+<nav><a class="brand" href="index.html">October Ride Map</a><a href="index.html">Home</a><a href="map.html">Map</a><a href="earnings.html" aria-current="page">Earnings</a><a href="days.html">Day by day</a><a href="patterns.html">Patterns</a><a href="findings.html">Findings</a><a href="method.html">Data & method</a></nav>
+
+<header><h1>Earnings</h1><div class="sub">$4,088.21 gross for the two weeks, $3,874.58 after charging</div></header>
+<div class="stats" id="stats"></div>
+<div class="panels">
+  <div class="panel">
+      <h2>Where the money came from <small>reconciled to the earnings sheet and Prop 22 statements</small></h2>
+      <div class="kv" id="money"></div>
+    </div>
+
+  <div class="panel">
+      <h2>By day <small>click a day to open it on the map</small></h2>
+      <div class="days" id="days"></div>
+    </div>
+
+  <div class="panel">
+      <h2>Biggest fares</h2>
+      <table id="top"></table>
+    </div>
+
+</div>
+<div class="prose">
+<h2>Reading the numbers</h2>
+<p>Ride pay is what the two apps paid per ride, tips included on Uber (the Uber export itemizes fare, promotion and tip per trip) and on Lyft (whose per-ride amounts fold tips in, so the tip total comes from the earnings sheet). The Lyft Prop 22 statement puts eligible base pay at $2,541.15; subtracting that and the tips from the ride total leaves about $226.10 that Lyft paid as streak and challenge bonuses outside the per-ride record.</p>
+<p>Prop 22 guarantees $21.61 per booked hour (120% of the $18.01 minimum) plus $0.37 per booked mile, before tips. Lyft's statement for Oct 5–19 counted 91 h 02 m and 1,671 booked miles for a floor of $2,586.31 against $2,541.15 earned, so it topped up $45.16. Uber's Sep 28–Oct 12 statement topped up $34.67 on roughly $334 of ride pay in the overlapping week, about 10%, versus Lyft's 1.8%: Uber's per-ride base sat further below the floor, and its $42.84 per trip-hour only looks better because it divides by time with a passenger aboard, not booked time.</p>
+<p>Short rides pay far more per mile than long ones: under 2 miles runs $4.89/mi on Lyft and $3.82/mi on Uber; over 10 miles, $1.60 and $1.52. On the 60 Uber trips where the rider's price is recorded, the driver's fare was 35.8% of it ($583.32 of $1,628.79; a typical ride 34.6%), rising to 44.0% once tips and promotions are added.</p>
+</div>
+
+<footer>Built from the driver's own Lyft and Uber exports, a phone GPS trail, the earnings sheet, two Prop 22 statements, and seven routes recalled from memory. Every figure on these pages is computed from those files; where a number is an estimate it says so.</footer>
+</div>
+<script src="data.js"></script>
+<script>
+(function(){
+const D=window.RIDES, S=D.summary;
+const $=s=>document.querySelector(s);
+const money=v=>'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0=v=>'$'+Math.round(v).toLocaleString('en-US');
+const fmtDay=d=>{const [y,m,dd]=d.split('-');return new Date(y,m-1,dd).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})};
+// stats
+const stats=[
+ ['Rides',S.rides,`${S.lyft.n} Lyft · ${S.uber.n} Uber`],
+ ['Paid miles',Math.round(S.mi).toLocaleString(),`median 4.9 mi`],
+ ['Ride pay',money0(S.usd),`${money(S.usd/S.mi)} / mi · Uber tips included`],
+ ['Gross with Prop 22',money0(S.usd+S.lyft.prop22+S.uber.prop22+S.lyft.cancel),`+ $${(S.lyft.prop22+S.uber.prop22).toFixed(2)} Prop 22 · $${S.lyft.cancel} cancels`],
+ ['Lyft',money0(S.lyft.usd),`${money(S.lyft.usd/S.lyft.mi)}/mi · ${money(S.lyft.usd/S.lyft.min*60)}/trip-hr`],
+ ['Uber',money0(S.uber.usd),`${money(S.uber.usd/S.uber.mi)}/mi · ${money(S.uber.usd/S.uber.min*60)}/trip-hr`],
+];
+$('#stats').innerHTML=stats.map(s=>`<div class="stat"><span>${s[0]}</span><b>${s[1]}</b><small>${s[2]}</small></div>`).join('');
+
+
+// days panel
+const maxUsd=Math.max(...D.days.map(d=>D.byday[d].usd));
+$('#days').innerHTML=D.days.map(d=>{const b=D.byday[d];const lp=b.lyft/b.n;const w=b.usd/maxUsd*100;
+ return `<button class="row" data-dayrow="${d}" title="${b.n} rides, ${b.mi.toFixed(0)} mi, ${(b.min/60).toFixed(1)} h on trips"><span class="d">${fmtDay(d)}</span><span class="bar"><i class="l" style="width:${w*lp}%"></i><i class="u" style="left:${w*lp}%;width:${w*(1-lp)}%"></i></span><span class="v">${money0(b.usd)} <span style="color:var(--muted)">· ${b.n}</span></span></button>`}).join('');
+document.querySelectorAll('[data-dayrow]').forEach(b=>b.onclick=()=>{location.href='map.html#day-'+b.dataset.dayrow});
+
+
+// top fares
+$('#top').innerHTML=D.top.map(r=>`<tr><td><span class="pl" style="background:${col(r.p)}"></span>${fmtDay(r.d)} ${r.t}<br><span style="color:var(--muted);font-size:12px">${r.pua} → ${r.doa}</span></td><td class="num">${r.mi.toFixed(1)} mi</td><td class="num"><b>${money(r.usd)}</b></td></tr>`).join('');
+
+
+const gross=S.usd+S.lyft.prop22+S.uber.prop22+S.lyft.cancel;
+$('#money').innerHTML=[['h','Lyft'],['Ride pay, 226 rides (tips included)',money(S.lyft.usd)],['of which eligible base pay (Prop 22 statement)',money(S.lyft.eligible)],['of which tips (earnings sheet)',money(S.lyft.tips)],['of which bonuses & adjustments, by difference',money(S.lyft.usd-S.lyft.eligible-S.lyft.tips)],['Paid cancellations (outside ride files)',money(S.lyft.cancel)],['Prop 22 adjustment, Oct 5–19',money(S.lyft.prop22)],['Guarantee: 91 h 02 m booked × $21.61 + 1,671 mi × $0.37',money(S.lyft.guar)],
+ ['h','Uber'],['Trip pay, 70 trips',money(S.uber.usd)],['of which driver fare',money(S.uber.fare)],['of which tips (21 trips)',money(S.uber.tips)],['of which promotions',money(S.uber.promo)],['Customers were charged',money(S.uber.customer)],['Driver share of customer fare',(100*S.uber.fare/S.uber.customer).toFixed(1)+'%'],['Prop 22 adjustment, Sep 28–Oct 12',money(S.uber.prop22)],
+ ['h','Total'],['Gross, Oct 7–19',money(gross)],['Charging (earnings sheet)',money(213.54)],['Net of charging',money(gross-213.54)]].map(x=>x[0]==='h'?`<span class="h">${x[1]}</span>`:`<span class="k">${x[0]}</span><span class="v">${x[1]}</span>`).join('');
+
+})();
+</script>
